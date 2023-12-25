@@ -182,6 +182,8 @@ void rpmsg_destroy_ept(struct rpmsg_endpoint *);
 struct rpmsg_endpoint *rpmsg_create_ept(struct rpmsg_device *,
 					rpmsg_rx_cb_t cb, void *priv,
 					struct rpmsg_channel_info chinfo);
+int rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept);
+int rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept);
 void *rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
                                  unsigned int *len, bool wait);
 
@@ -259,6 +261,22 @@ static inline struct rpmsg_endpoint *rpmsg_create_ept(struct rpmsg_device *rpdev
 	WARN_ON(1);
 
 	return NULL;
+}
+
+int rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept)
+{
+       /* This shouldn't be possible */
+       WARN_ON(1);
+
+       return -ENXIO;
+}
+
+int rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept)
+{
+       /* This shouldn't be possible */
+       WARN_ON(1);
+
+       return -ENXIO;
 }
 
 static inline void *rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,

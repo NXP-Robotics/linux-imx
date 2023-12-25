@@ -136,6 +136,40 @@ void rpmsg_destroy_ept(struct rpmsg_endpoint *ept)
 EXPORT_SYMBOL(rpmsg_destroy_ept);
 
 /**
+ * rpmsg_get_tx_buffer_size() - get the endpoint's tx buffer size
+ * @ept:       the rpmsg endpoint
+ *
+ * Returns tx buffer size on success and an appropriate error value on failure.
+ */
+int rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept)
+{
+       if (WARN_ON(!ept))
+               return -EINVAL;
+       if (!ept->ops->get_tx_buffer_size)
+               return -ENXIO;
+
+       return ept->ops->get_tx_buffer_size(ept);
+}
+EXPORT_SYMBOL(rpmsg_get_tx_buffer_size);
+
+/**
+ * rpmsg_get_rx_buffer_size() - get the endpoint's rx buffer size
+ * @ept:       the rpmsg endpoint
+ *
+ * Returns rx buffer size on success and an appropriate error value on failure.
+ */
+int rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept)
+{
+       if (WARN_ON(!ept))
+               return -EINVAL;
+       if (!ept->ops->get_rx_buffer_size)
+               return -ENXIO;
+
+       return ept->ops->get_rx_buffer_size(ept);
+}
+EXPORT_SYMBOL(rpmsg_get_rx_buffer_size);
+
+/**
  * rpmsg_get_tx_payload_buffer() - get the payload buffer from the pool
  * @ept: the rpmsg endpoint
  * @len: length of payload
@@ -244,8 +278,6 @@ int rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, u32 src, u32 dst,
        return ept->ops->send_offchannel_nocopy(ept, src, dst, data, len);
 }
 EXPORT_SYMBOL(rpmsg_send_offchannel_nocopy);
-
-
 
 /**
  * rpmsg_send() - send a message across to the remote processor

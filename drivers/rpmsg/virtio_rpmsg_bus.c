@@ -138,6 +138,8 @@ struct virtio_rpmsg_channel {
 #define RPMSG_RESERVED_ADDRESSES	(1024)
 
 static void virtio_rpmsg_destroy_ept(struct rpmsg_endpoint *ept);
+static int virtio_rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept);
+static int virtio_rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept);
 static void *virtio_rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
                                                unsigned int *len, bool wait);
 static int virtio_rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, u32 src,
@@ -162,6 +164,8 @@ static struct rpmsg_device *__rpmsg_create_channel(struct virtproc_info *vrp,
 
 static const struct rpmsg_endpoint_ops virtio_endpoint_ops = {
 	.destroy_ept = virtio_rpmsg_destroy_ept,
+	.get_tx_buffer_size = virtio_rpmsg_get_tx_buffer_size,
+    .get_rx_buffer_size = virtio_rpmsg_get_rx_buffer_size,
     .get_tx_payload_buffer = virtio_rpmsg_get_tx_payload_buffer,
     .send_nocopy = virtio_rpmsg_send_nocopy,
     .sendto_nocopy = virtio_rpmsg_sendto_nocopy,
@@ -527,6 +531,21 @@ static void rpmsg_downref_sleepers(struct virtproc_info *vrp)
 
 	mutex_unlock(&vrp->tx_lock);
 }
+
+static int virtio_rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept)
+{
+       struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(ept->rpdev);
+
+       return vch->vrp->buf_size - sizeof(struct rpmsg_hdr);
+}
+
+static int virtio_rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept)
+{
+       struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(ept->rpdev);
+
+       return vch->vrp->buf_size - sizeof(struct rpmsg_hdr);
+}
+
 
 static void *virtio_rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
                                                unsigned int *len, bool wait)
