@@ -181,6 +181,8 @@ struct panthor_device {
 		 */
 		struct page *dummy_latest_flush;
 	} pm;
+	/** @pm: Power management related data. */
+	struct dev_pm_domain_list  *pd_list;
 
 	/** @profile_mask: User-set profiling flags for job accounting. */
 	u32 profile_mask;

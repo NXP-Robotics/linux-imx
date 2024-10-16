@@ -146,10 +146,10 @@ int panthor_devfreq_init(struct panthor_device *ptdev)
 	ptdev->devfreq = pdevfreq;
 
 	ret = devm_pm_opp_set_regulators(dev, reg_names);
-	if (ret) {
+	/* Continue if the optional regulator is missing */
+	if (ret && ret != -ENODEV) {
 		if (ret != -EPROBE_DEFER)
 			DRM_DEV_ERROR(dev, "Couldn't set OPP regulators\n");
-
 		return ret;
 	}
 
