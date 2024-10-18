@@ -257,6 +257,9 @@ static int rpmsg_tty_probe(struct rpmsg_device *rpdev)
 		goto tty_unregister;
 	}
 
+	/* send announcement message for remote to know this address */
+	rpdev->announce = 1;
+
 	return 0;
 
 tty_unregister:
