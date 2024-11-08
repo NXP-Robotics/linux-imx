@@ -10,6 +10,8 @@
 #include <linux/tty_flip.h>
 #include <linux/workqueue.h>
 
+#include <generated/uapi/linux/version.h>
+
 #define RPMSG_TTY_WRITE		0
 #define RPMSG_TTY_WAKEUP	1
 
@@ -81,7 +83,11 @@ static void tty_rpmsg_close(struct tty_struct *tty, struct file *filp)
 	tty_port_close(tty->port, tty, filp);
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+static int tty_rpmsg_write_room(struct tty_struct *tty)
+#else
 static unsigned int tty_rpmsg_write_room(struct tty_struct *tty)
+#endif
 {
 	struct tty_port *p = tty->port;
 	struct tty_rpmsg_port *port = to_tty_rpmsg_port(p);
@@ -96,7 +102,7 @@ static unsigned int tty_rpmsg_write_room(struct tty_struct *tty)
 	space -= port->xmit_size;
 	mutex_unlock(&p->buf_mutex);
 
-	return (unsigned int)(space < 0 ? 0 : space);
+	return space < 0 ? 0 : space;
 }
 
 static int tty_rpmsg_do_write(struct tty_struct *tty,
@@ -128,8 +134,10 @@ static int tty_rpmsg_do_write(struct tty_struct *tty,
 	init_completion(&cookie.done);
 
 	ret = rpmsg_send_nocopy(rpdev->ept, msg, sizeof(*msg) + count);
-	if (ret < 0)
+	if (ret < 0) {
+		/* rpmsg_release_tx_buffer(rpdev->ept, msg); TODO: uncomment when function available */
 		return ret;
+	}
 
 	wait_for_completion(&cookie.done);
 	return cookie.result;
