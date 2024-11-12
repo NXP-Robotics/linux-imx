@@ -135,7 +135,7 @@ static int tty_rpmsg_do_write(struct tty_struct *tty,
 
 	ret = rpmsg_send_nocopy(rpdev->ept, msg, sizeof(*msg) + count);
 	if (ret < 0) {
-		/* rpmsg_release_tx_buffer(rpdev->ept, msg); TODO: uncomment when function available */
+		rpmsg_release_tx_buffer(rpdev->ept, msg);
 		return ret;
 	}
 

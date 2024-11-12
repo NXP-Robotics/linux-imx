@@ -186,6 +186,7 @@ int rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept);
 int rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept);
 void *rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
                                  unsigned int *len, bool wait);
+int rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *txbuf);
 
 int rpmsg_send_nocopy(struct rpmsg_endpoint *ept, void *data, int len);
 int rpmsg_sendto_nocopy(struct rpmsg_endpoint *ept, void *data, int len, u32 dst);
@@ -286,6 +287,14 @@ static inline void *rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
        WARN_ON(1);
 
        return ERR_PTR(-ENXIO);
+}
+
+static inline int rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *txbuf)
+{
+       /* This shouldn't be possible */
+       WARN_ON(1);
+
+       return -ENXIO;
 }
 
 static inline int rpmsg_send_nocopy(struct rpmsg_endpoint *ept, void *data, int len)

@@ -190,6 +190,24 @@ void *rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
 EXPORT_SYMBOL(rpmsg_get_tx_payload_buffer);
 
 /**
+ * rpmsg_release_tx_buffer() - release the tx buffer
+ * @ept: the rpmsg endpoint
+ * @txbuf: pointer to the buffer returned by rpmsg_get_tx_payload_buffer()
+ *
+ * Returns 0 on success and an appropriate error value on failure.
+ */
+int rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *txbuf)
+{
+       if (WARN_ON(!ept))
+               return -EINVAL;
+       if (!ept->ops->release_tx_buffer)
+               return -ENXIO;
+
+       return ept->ops->release_tx_buffer(ept, txbuf);
+}
+EXPORT_SYMBOL(rpmsg_release_tx_buffer);
+
+/**
  * rpmsg_send_nocopy() - send a message across to the remote processor
  * @ept: the rpmsg endpoint
  * @data: payload of message
