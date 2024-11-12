@@ -142,6 +142,7 @@ static int virtio_rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept);
 static int virtio_rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept);
 static void *virtio_rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
                                                unsigned int *len, bool wait);
+static int virtio_rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *txbuf);
 static int virtio_rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, u32 src,
                                               u32 dst, void *data, int len);
 static int virtio_rpmsg_send_nocopy(struct rpmsg_endpoint *ept, void *data, int len);
@@ -167,6 +168,7 @@ static const struct rpmsg_endpoint_ops virtio_endpoint_ops = {
 	.get_tx_buffer_size = virtio_rpmsg_get_tx_buffer_size,
     .get_rx_buffer_size = virtio_rpmsg_get_rx_buffer_size,
     .get_tx_payload_buffer = virtio_rpmsg_get_tx_payload_buffer,
+    .release_tx_buffer = virtio_rpmsg_release_tx_buffer,
     .send_nocopy = virtio_rpmsg_send_nocopy,
     .sendto_nocopy = virtio_rpmsg_sendto_nocopy,
     .send_offchannel_nocopy = virtio_rpmsg_send_offchannel_nocopy,
@@ -589,6 +591,21 @@ static void *virtio_rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
 
        *len -= sizeof(*msg);
        return msg + 1;
+}
+
+static int virtio_rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *txbuf)
+{
+	/* Clearing buffer should be sufficient since the tail cannot
+	 * be increased from the sender side
+	 */
+
+	struct rpmsg_device *rpdev = ept->rpdev;
+	struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(rpdev);
+	struct virtproc_info *vrp = vch->vrp;
+
+	memset(txbuf, 0, vrp->buf_size);
+
+	return 0;
 }
 
 static int virtio_rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, u32 src,
