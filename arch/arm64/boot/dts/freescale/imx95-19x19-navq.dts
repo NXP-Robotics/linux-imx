@@ -294,6 +294,11 @@
 	status = "disabled";
 };
 
+/* The M7 also uses the AON.EDMA and sharing isn't supported yet in Linux */
+&edma1 {
+	status = "disabled";
+};
+
 &tpm3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_tpm3>;
@@ -367,6 +372,8 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpi2c2>;
 	pinctrl-1 = <&pinctrl_lpi2c2>;
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
 	status = "okay";
 
 	i2c2_ioexp21: i2c2-gpio@21 {
@@ -664,6 +671,8 @@ interrupt connected to pcal6416 managed by m33
 	/* console */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart1>;
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
 	status = "okay";
 };
 
