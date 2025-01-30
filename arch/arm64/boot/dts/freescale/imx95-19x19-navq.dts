@@ -469,20 +469,13 @@
 		interrupt-parent = <&i2c2_ioexp21>;
 		interrupts = <10 IRQ_TYPE_EDGE_FALLING>; // 10 = USB2_PTN_INT_B
 
-		// port {
-		// 	typec_dr_sw2: endpoint {
-		// 		remote-endpoint = <&usb2_drd_sw>;
-		// 	};
-		// };
-
 		typec_con2: connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";
-			power-role = "dual";
+			power-role = "source";
 			data-role = "dual";
-			try-power-role = "sink";
+			try-power-role = "source";
 			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
-			sink-pdos = <PDO_FIXED(5000, 0, PDO_FIXED_USB_COMM)>;
 			op-sink-microwatt = <0>;
 			self-powered;
 
@@ -516,11 +509,10 @@
 		typec_con3: connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";
-			power-role = "dual";
+			power-role = "source";
 			data-role = "dual";
-			try-power-role = "sink";
+			try-power-role = "source";
 			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
-			sink-pdos = <PDO_FIXED(5000, 0, PDO_FIXED_USB_COMM)>;
 			op-sink-microwatt = <0>;
 			self-powered;
 
@@ -813,11 +805,6 @@ interrupt connected to pcal6416 managed by m33
 		};
 	};
 
-	// port {
-	// 	usb2_drd_sw: endpoint {
-	// 		remote-endpoint = <&typec_dr_sw2>;
-	// 	};
-	// };
 };
 
 &usb3 {
