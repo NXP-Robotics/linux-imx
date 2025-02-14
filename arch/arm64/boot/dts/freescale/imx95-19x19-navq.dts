@@ -668,6 +668,16 @@ interrupt connected to pcal6416 managed by m33
 	status = "okay";
 };
 
+&lpuart5 {
+	/* J20 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart5>;
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+	/* uart-has-rtscts; */
+	status = "okay";
+};
+
 &lpuart6 {
 	/* BT */
 	pinctrl-names = "default";
@@ -1042,6 +1052,15 @@ interrupt connected to pcal6416 managed by m33
 		fsl,pins = <
 			IMX95_PAD_UART1_RXD__AONMIX_TOP_LPUART1_RX      0x31e
 			IMX95_PAD_UART1_TXD__AONMIX_TOP_LPUART1_TX      0x31e
+		>;
+	};
+
+	pinctrl_uart5: uart5grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO00__LPUART5_TX			0x31e
+			IMX95_PAD_GPIO_IO01__LPUART5_RX			0x31e
+			IMX95_PAD_GPIO_IO02__LPUART5_CTS_B		0x31e
+			IMX95_PAD_GPIO_IO03__LPUART5_RTS_B		0x31e
 		>;
 	};
 
