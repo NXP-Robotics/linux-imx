@@ -674,7 +674,7 @@ interrupt connected to pcal6416 managed by m33
 	pinctrl-0 = <&pinctrl_uart5>;
 	/delete-property/ dmas;
 	/delete-property/ dma-names;
-	/* uart-has-rtscts; */
+	uart-has-rtscts;
 	status = "okay";
 };
 
