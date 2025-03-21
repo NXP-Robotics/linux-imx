@@ -433,7 +433,7 @@
 
 		eth_clk_en: eth-clk-en {
 			gpio-hog;
-			gpios = <17 GPIO_ACTIVE_HIGH>;
+			gpios = <17 GPIO_ACTIVE_LOW>;
 			output-high;
 		};
 
@@ -758,7 +758,7 @@ interrupt connected to pcal6416 managed by m33
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enetc1>;
 	phy-mode = "rgmii-id";
-	status = "okay";
+	status = "disabled";
 
 	fixed-link {
 		speed = <1000>;
@@ -766,21 +766,15 @@ interrupt connected to pcal6416 managed by m33
 	};
 };
 
-// &enetc_port2 {
-// 	//phy-handle = <&ethphy2>;
-// 	//pinctrl-0 = <&pinctrl_enetc2>;
-// 	//phy-mode = "sgmii-2500";
-// 	//phy-mode = "2500base-x";
-// 	phy-mode = "sgmii";
-// 	//serdes-supply = <&reg_serdes_en>;
-// 	//managed = "in-band-status";
-// 	status = "okay";
+&enetc_port2 {
+	phy-mode = "2500base-x";
+	status = "okay";
 
-//  	fixed-link {
-// 		speed = <2500>;
-// 		full-duplex;
-// 	};
-// };
+	fixed-link {
+		speed = <2500>;
+		full-duplex;
+	};
+};
 
 &netc_timer {
 	status = "okay";
