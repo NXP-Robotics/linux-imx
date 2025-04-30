@@ -299,6 +299,10 @@
 	status = "disabled";
 };
 
+&edma2 {
+	dma-channels = <30>;
+};
+
 &tpm3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_tpm3>;
@@ -672,8 +676,6 @@ interrupt connected to pcal6416 managed by m33
 	/* J20 */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart5>;
-	/delete-property/ dmas;
-	/delete-property/ dma-names;
 	uart-has-rtscts;
 	status = "okay";
 };
