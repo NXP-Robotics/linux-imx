@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
- * Copyright 2023 NXP
+ * Copyright 2025 NXP
  */
 
 /dts-v1/;
 
-#include <dt-bindings/phy/phy-imx8-pcie.h>
 #include <dt-bindings/pwm/pwm.h>
+#include <dt-bindings/phy/phy-imx8-pcie.h>
 #include <dt-bindings/usb/pd.h>
 #include "imx95.dtsi"
 
@@ -24,6 +24,9 @@
 	compatible = "fsl,imx95-19x19-evk", "fsl,imx95";
 
 	aliases {
+		mmc0 = &usdhc1;
+		mmc1 = &usdhc2;
+		serial0 = &lpuart1;
 		ethernet0 = &enetc_port0;
 		ethernet1 = &enetc_port2;
 	};
@@ -40,18 +43,16 @@
 		};
 	};
 
-	fan0: pwm-fan {
-		compatible = "pwm-fan";
-		cooling-min-state = <0>;
-		cooling-max-state = <3>;
-		#cooling-cells = <2>;
-		pwms = <&tpm6 2 4000000 PWM_POLARITY_INVERTED>;
-		cooling-levels = <64 128 192 255>;
-	};
-
 	memory@80000000 {
 		device_type = "memory";
 		reg = <0x0 0x80000000 0 0x80000000>;
+	};
+
+	fan0: pwm-fan {
+		compatible = "pwm-fan";
+		#cooling-cells = <2>;
+		pwms = <&tpm6 2 4000000 PWM_POLARITY_INVERTED>;
+		cooling-levels = <64 128 192 255>;
 	};
 
 	reserved-memory {
@@ -61,10 +62,10 @@
 
 		linux_cma: linux,cma {
 			compatible = "shared-dma-pool";
-			reusable;
+			alloc-ranges = <0 0x80000000 0 0x7f000000>;
 			size = <0 0x3c000000>;
-			alloc-ranges = <0 0x80000000 0 0x7F000000>;
 			linux,cma-default;
+			reusable;
 		};
 
 		vpu_boot: vpu_boot@a0000000 {
@@ -207,8 +208,8 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio3 7 GPIO_ACTIVE_HIGH>;
-		off-on-delay-us = <12000>;
 		enable-active-high;
+		off-on-delay-us = <12000>;
 	};
 
 	reg_usdhc3_vmmc: regulator-usdhc3 {
@@ -730,7 +731,8 @@ interrupt connected to pcal6416 managed by m33
 	pinctrl-1 = <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>;
 	pinctrl-2 = <&pinctrl_usdhc2_200mhz>, <&pinctrl_usdhc2_gpio>;
 	pinctrl-3 = <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>;
-	cd-gpios = <&gpio3 00 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&gpio3 0 GPIO_ACTIVE_LOW>;
+	fsl,cd-gpio-wakeup-disable;
 	vmmc-supply = <&reg_usdhc2_vmmc>;
 	bus-width = <4>;
 	status = "okay";
@@ -780,12 +782,6 @@ interrupt connected to pcal6416 managed by m33
 
 &netc_timer {
 	status = "okay";
-};
-
-&netc_prb_ierb {
-	netc-interfaces = <NXP_NETC_RGMII
-			   NXP_NETC_RGMII
-			   NXP_NETC_SERIAL>;
 };
 
 &netc_emdio {
@@ -1359,5 +1355,3 @@ interrupt connected to pcal6416 managed by m33
 &gpio2 {
 	status = "disabled";
 };
-
-
