@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2025 NXP
+ */
+
+#include "imx95-19x19-navq.dts"
+
+&lpuart5 {
+	status = "disabled";
+};
+
+&lpspi6 {
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpspi6>;
+	pinctrl-1 = <&pinctrl_lpspi6>;
+	cs-gpios = <&gpio2 0 GPIO_ACTIVE_LOW>;
+	dmas = <>;
+	dma-names = "";
+
+	status = "okay";
+
+	spidev@0 {
+		compatible = "spidev";
+		reg = <0>; // Chip select 0
+		spi-max-frequency = <20000000>; // 20 MHz
+	};
+	/*spidev@0 {
+		compatible = "rohm,dh2228fv";
+		reg = <0>;
+		spi-max-frequency = <4000000>;
+	};*/
+};
+
+&scmi_iomuxc {
+        pinctrl_lpspi6: lpspi6grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO00__LPSPI6_PCS0	0x31e
+			IMX95_PAD_GPIO_IO01__LPSPI6_SIN 	0x31e
+			IMX95_PAD_GPIO_IO02__LPSPI6_SOUT        0x31e
+			IMX95_PAD_GPIO_IO03__LPSPI6_SCK 	0x31e
+		>;
+	};
+};
+
+&gpio2 {
+	status = "okay";
+};
