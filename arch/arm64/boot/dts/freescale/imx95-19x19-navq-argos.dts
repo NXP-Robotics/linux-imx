@@ -32,6 +32,12 @@
 	};*/
 };
 
+&lpi2c3 {
+	i2c3_ioexp22: i2c3-gpio@22 {
+		/delete-node/ can-power-en;
+	};
+};
+
 &scmi_iomuxc {
         pinctrl_lpspi6: lpspi6grp {
 		fsl,pins = <
