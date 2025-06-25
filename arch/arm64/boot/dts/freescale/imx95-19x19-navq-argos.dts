@@ -41,7 +41,7 @@
 &scmi_iomuxc {
         pinctrl_lpspi6: lpspi6grp {
 		fsl,pins = <
-			IMX95_PAD_GPIO_IO00__LPSPI6_PCS0	0x31e
+			IMX95_PAD_GPIO_IO00__GPIO2_IO_BIT0	0x31e
 			IMX95_PAD_GPIO_IO01__LPSPI6_SIN 	0x31e
 			IMX95_PAD_GPIO_IO02__LPSPI6_SOUT        0x31e
 			IMX95_PAD_GPIO_IO03__LPSPI6_SCK 	0x31e
