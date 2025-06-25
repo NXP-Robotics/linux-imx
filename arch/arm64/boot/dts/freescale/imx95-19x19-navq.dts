@@ -300,11 +300,11 @@
 };
 
 &displaymix_irqsteer {
-	status = "disabled";
+	status = "okay";
 };
 
 &dpu {
-	status = "disabled";
+	status = "okay";
 };
 
 &tpm3 {
