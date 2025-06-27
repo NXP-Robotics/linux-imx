@@ -252,20 +252,11 @@
 		regulator-always-on;
 	};
 
-	reg_serdes_stby: regulator-mac-stby {
+	reg_eth_clk_en: regulator-eth-clk-en {
 		compatible = "regulator-fixed";
-		regulator-name = "mac-stby";
+		regulator-name = "eth-clk-en";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&i2c2_ioexp21 18 GPIO_ACTIVE_LOW>;
-	};
-
-	reg_serdes_en: regulator-mac-en {
-		compatible = "regulator-fixed";
-		regulator-name = "mac-en";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		vin-supply = <&reg_serdes_stby>;
 		gpio = <&i2c2_ioexp21 17 GPIO_ACTIVE_LOW>;
 	};
 
@@ -434,12 +425,6 @@
 			gpio-hog;
 			gpios = <12 (GPIO_ACTIVE_LOW | GPIO_LINE_OPEN_DRAIN)>;
 			input;
-		};
-
-		eth_clk_en: eth-clk-en {
-			gpio-hog;
-			gpios = <17 GPIO_ACTIVE_LOW>;
-			output-high;
 		};
 
 		si5332_rst: si5332-rst {
@@ -996,6 +981,7 @@ interrupt connected to pcal6416 managed by m33
 };
 
 &enetc_port2 {
+	serdes-supply = <&reg_eth_clk_en>;
 	phy-mode = "2500base-x";
 	status = "okay";
 
