@@ -52,3 +52,50 @@
 &gpio2 {
 	status = "okay";
 };
+
+&lpi2c3 {
+	/delete-node/ ov5640@3c;
+};
+
+&lpi2c4 {
+	/delete-node/ ov5640@3c;
+};
+
+/ {
+	dummy_csi0: dummy_csi0 {
+		compatible = "raspberrypi,dummy-csi2-sensor";
+		status = "okay";
+
+		port {
+			dummy_csi0_out: endpoint {
+				remote-endpoint = <&mipi_csi0_ep>;
+			};
+		};
+	};
+};
+
+/* Override to use dummy csi device and single lane */
+
+&mipi_csi0_ep {
+	remote-endpoint = <&dummy_csi0_out>;
+	data-lanes = <1>;
+	clock-lanes = <0>;
+};
+
+/* Disable CSI1 port formatter & ISI */
+
+&mipi_csi1 {
+	status = "disabled";
+    /delete-node/ ports;
+};
+
+&csi_pixel_formatter_1 {
+	status = "disabled";
+    /delete-node/ ports;
+};
+
+&isi {
+	ports {
+		/delete-node/ port@3;
+	};
+};
