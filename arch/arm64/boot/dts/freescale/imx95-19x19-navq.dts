@@ -108,6 +108,11 @@
 			reg = <0 0x90000000 0 0x400000>;
 			no-map;
 		};
+
+                uboolspl: uboolspl@88240000 {
+	                reg = <0 0x88240000 0 0x58000>;
+			no-map;
+                };
 	};
 
 	reg_1p8v: regulator-1p8v {
