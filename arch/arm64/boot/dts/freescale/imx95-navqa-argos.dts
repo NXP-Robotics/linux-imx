@@ -3,7 +3,7 @@
  * Copyright 2025 NXP
  */
 
-#include "imx95-19x19-navq.dts"
+#include "imx95-navqa.dts"
 
 &lpuart5 {
 	status = "disabled";

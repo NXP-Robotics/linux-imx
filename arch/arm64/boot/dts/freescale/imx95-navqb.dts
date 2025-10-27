@@ -20,8 +20,8 @@
 #define BRD_SM_CTRL_BUTTON		0x8004	/*!< PCAL6408A-7 */
 
 / {
-	model = "NXP i.MX95 19X19 board";
-	compatible = "fsl,imx95-19x19-evk", "fsl,imx95";
+	model = "NXP X-MR-NAVQ95B";
+	compatible = "fsl,imx95-navqb", "fsl,imx95";
 
 	aliases {
 		mmc0 = &usdhc1;
