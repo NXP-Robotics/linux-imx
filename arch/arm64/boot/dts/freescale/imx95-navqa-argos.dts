@@ -14,7 +14,6 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpspi3>;
 	pinctrl-1 = <&pinctrl_lpspi3>;
-	cs-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
 	dmas = <>;
 	dma-names = "";
 
@@ -32,7 +31,6 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpspi6>;
 	pinctrl-1 = <&pinctrl_lpspi6>;
-	cs-gpios = <&gpio2 0 GPIO_ACTIVE_LOW>;
 	dmas = <>;
 	dma-names = "";
 
@@ -48,7 +46,7 @@
 &scmi_iomuxc {
         pinctrl_lpspi6: lpspi6grp {
 		fsl,pins = <
-			IMX95_PAD_GPIO_IO00__GPIO2_IO_BIT0	0x31e
+			IMX95_PAD_GPIO_IO00__LPSPI6_PCS0	0x31e
 			IMX95_PAD_GPIO_IO01__LPSPI6_SIN 	0x31e
 			IMX95_PAD_GPIO_IO02__LPSPI6_SOUT        0x31e
 			IMX95_PAD_GPIO_IO03__LPSPI6_SCK 	0x31e
@@ -57,7 +55,7 @@
 
 	pinctrl_lpspi3: lpspi3grp {
 		fsl,pins = <
-			IMX95_PAD_GPIO_IO08__GPIO2_IO_BIT8	0x31e
+			IMX95_PAD_GPIO_IO08__LPSPI3_PCS0	0x31e
 			IMX95_PAD_GPIO_IO09__LPSPI3_SIN 	0x31e
 			IMX95_PAD_GPIO_IO10__LPSPI3_SOUT        0x31e
 			IMX95_PAD_GPIO_IO11__LPSPI3_SCK 	0x31e

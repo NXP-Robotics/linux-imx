@@ -481,7 +481,6 @@ interrupt connected to pcal6416 managed by m33
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpspi7>;
 	pinctrl-1 = <&pinctrl_lpspi7>;
-	cs-gpios = <&gpio2 4 GPIO_ACTIVE_LOW>;
 	status = "disabled";
 
 	spidev0: spi@0 {
@@ -848,7 +847,7 @@ interrupt connected to pcal6416 managed by m33
 
 	pinctrl_lpspi7: lpspi7grp {
 		fsl,pins = <
-			IMX95_PAD_GPIO_IO04__GPIO2_IO_BIT4	0x3fe
+			IMX95_PAD_GPIO_IO04__LPSPI7_PCS0	0x3fe
 			IMX95_PAD_GPIO_IO05__LPSPI7_SIN		0x3fe
 			IMX95_PAD_GPIO_IO06__LPSPI7_SOUT	0x3fe
 			IMX95_PAD_GPIO_IO07__LPSPI7_SCK		0x3fe
