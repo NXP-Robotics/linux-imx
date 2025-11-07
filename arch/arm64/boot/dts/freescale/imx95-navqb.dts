@@ -6,6 +6,7 @@
 /dts-v1/;
 
 #include "imx95-navq.dtsi"
+
 / {
 	model = "NXP X-MR-NAVQ95B";
 	compatible = "fsl,imx95-navqb", "fsl,imx95";
@@ -94,6 +95,78 @@ interrupt connected to pcal6416 managed by m33
 		status = "okay";
 
 		
+	};
+
+	ptn5110_usb3: tcpc_usb3@50 {
+		compatible = "nxp,ptn5110";
+		pinctrl-names = "default";
+		reg = <0x50>;
+
+		// TODO: interrupt on port ENET2_RD1 line USB_PTN5110_ALERT_B
+		// interrupt-parent = <&i2c2_ioexp21>;
+		// interrupts = <10 IRQ_TYPE_EDGE_FALLING>; // 10 = USB2_PTN_INT_B
+
+		port {
+			typec_dr_sw3: endpoint {
+				remote-endpoint = <&usb3_drd_sw>;
+			};
+		};
+
+		typec_con3: connector {
+			compatible = "usb-c-connector";
+			label = "USB1 3.0 Type C";
+			power-role = "source";
+			data-role = "dual";
+			try-power-role = "source";
+			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+			op-sink-microwatt = <0>;
+			self-powered;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@1 {
+					reg = <1>;
+					typec_con_ss3: endpoint {
+						remote-endpoint = <&usb3_data_ss>;
+					};
+				};
+			};
+		};
+	};
+
+	ptn5110_usb2: tcpc_usb2@51 {
+		compatible = "nxp,ptn5110";
+		pinctrl-names = "default";
+		reg = <0x51>;
+
+		// TODO: interrupt on port ENET2_RD1 line USB_PTN5110_ALERT_B
+		// interrupt-parent = <&i2c2_ioexp21>;
+		// interrupts = <10 IRQ_TYPE_EDGE_FALLING>; // 10 = USB2_PTN_INT_B
+
+		typec_con2: connector {
+			compatible = "usb-c-connector";
+			label = "USB2 2.0 Type C";
+			power-role = "source";
+			data-role = "dual";
+			try-power-role = "source";
+			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+			op-sink-microwatt = <0>;
+			self-powered;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@1 {
+					reg = <1>;
+					typec_con_ss2: endpoint {
+						remote-endpoint = <&usb2_data_ss>;
+					};
+				};
+			};
+		};
 	};
 };
 
@@ -188,18 +261,23 @@ interrupt connected to pcal6416 managed by m33
 		spi-max-frequency = <1000000>;
 	};
 
-	spidev1: spi@1 { //TODO SJA1110
+	sja1110_host: spi@1 { //TODO
 		reg = <1>;
 		compatible = "lwn,bk4";
 		spi-max-frequency = <1000000>;
 	};
 
-	spidev2: spi@2 { //TODO SJA1110
+	sja1110_ap: ethernet-switch@2 {
+		compatible = "nxp,sja1110a";
 		reg = <2>;
-		compatible = "lwn,bk4";
-		spi-max-frequency = <1000000>;
+		spi-max-frequency = <4000000>;
+		spi-cpol;
+		dsa,member = <0 0>;
 	};
 };
+
+// TODO update sja1110 config
+//#include "imx95-navqb-sja1110.dtsi"
 
 &flexcan1 {
 	pinctrl-names = "default";
@@ -245,6 +323,10 @@ interrupt connected to pcal6416 managed by m33
 	status = "okay";
 };
 
+&enetc_port2 {
+	status = "okay";
+};
+
 &scmi_iomuxc {
 	pinctrl_uart4: uart4grp {
 		fsl,pins = <
@@ -276,3 +358,5 @@ interrupt connected to pcal6416 managed by m33
 		>;
 	};
 };
+
+
