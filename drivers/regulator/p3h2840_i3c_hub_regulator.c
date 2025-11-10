@@ -112,7 +112,7 @@ static struct regulator_desc p3h2x4x_regulators[] = {
 	},
 };
 
-int p3h2x4x_regulator_probe(struct platform_device *pdev)
+static int p3h2x4x_regulator_probe(struct platform_device *pdev)
 {
 	struct p3h2x4x_dev *p3h2x4x = dev_get_drvdata(pdev->dev.parent);
 	struct p3h2x4x_regulator_dev *p3h2x4x_regulator;

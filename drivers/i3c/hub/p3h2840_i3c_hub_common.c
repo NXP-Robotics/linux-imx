@@ -590,7 +590,7 @@ static void p3h2x4x_of_default_configuration(struct device *dev)
 		p3h2x4x_i3c_hub->settings.tp[tp_count].mode =  P3H2x4x_TP_MODE_NOT_SET;
 }
 
-int p3h2x4x_i3c_hub_probe(struct platform_device *pdev)
+static int p3h2x4x_i3c_hub_probe(struct platform_device *pdev)
 {
 	struct p3h2x4x_dev *p3h2x4x = dev_get_drvdata(pdev->dev.parent);
 	struct device_node *node __free(device_node) = NULL;
@@ -715,7 +715,7 @@ int p3h2x4x_i3c_hub_probe(struct platform_device *pdev)
 	return 0;
 }
 
-int p3h2x4x_i3c_hub_remove(struct platform_device *pdev)
+static void p3h2x4x_i3c_hub_remove(struct platform_device *pdev)
 {
 	struct p3h2x4x_i3c_hub_dev *p3h2x4x_i3c_hub = platform_get_drvdata(pdev);
 	struct p3h2x4x_dev *p3h2x4x = dev_get_drvdata(pdev->dev.parent);
@@ -763,7 +763,6 @@ int p3h2x4x_i3c_hub_remove(struct platform_device *pdev)
 	for (i = 0; i < P3H2x4x_TP_MAX_COUNT; i++)
 		mutex_destroy(&p3h2x4x_i3c_hub->tp_bus[i].port_mutex);
 
-	return 0;
 }
 
 static struct platform_driver p3h2x4x_i3c_hub_driver = {
