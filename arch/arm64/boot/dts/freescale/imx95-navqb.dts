@@ -227,6 +227,134 @@ interrupt connected to pcal6416 managed by m33
 	};
 };
 
+&i3c2 {
+        #address-cells = <3>;
+        #size-cells = <0>;
+	status = "okay";
+
+        hub@70,236153000c2 {
+		compatible = "nxp,p3h2840";
+		reg = <0x70 0x236 0x3000c2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		assigned-address = <0x50>;
+
+		cp0-ldo-microvolt = <1800000>;
+		cp1-ldo-microvolt = <1800000>;
+		tp0145-ldo-microvolt = <1800000>;
+		tp2367-ldo-microvolt = <1800000>;
+		tp0145-pullup-ohm = <1000>;
+		tp2367-pullup-ohm = <1000>;
+		cp0-io-strength-ohm = <50>;
+		cp1-io-strength-ohm = <50>;
+		tp0145-io-strength-ohm = <50>;
+		tp2367-io-strength-ohm = <50>;
+		cp0-supply = <&cp0>;
+		cp1-supply = <&cp1>;
+		tp0145-supply = <&tp0145>;
+		tp2367-supply = <&tp2367>;
+
+		regulators {
+			cp0: cp0 {
+				regulator-name = "cp0";
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1800000>;
+			};
+
+			cp1: cp1 {
+				regulator-name = "cp1";
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1800000>;
+			};
+
+			tp0145: tp0145 {
+				regulator-name = "tp0145";
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1800000>;
+			};
+
+			tp2367: tp2367 {
+				regulator-name = "tp2367";
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1800000>;
+			};
+		};
+
+		p3h_i3c2a: target-port@0 {
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mode = "i3c";
+			pullup-enable;
+
+			// --- example node ---
+			// eeprom@57 {
+			//     compatible = "atmel,24c32";
+			//     reg = <0x57>;
+			//     pagesize = <32>;
+			//     wp-gpios = <&gpio2 2 0>;
+			//     num-addresses = <8>;
+			// };
+		};
+
+		p3h_i3c2b: target-port@1 {
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mode = "i3c";
+			pullup-enable;
+		};
+
+		p3h_gpio: target-port@2 {
+			reg = <0x2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mode = "gpio";
+			pullup-enable;
+		};
+
+		p3h_m2_bus: target-port@3 {
+			reg = <0x3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mode = "smbus";
+			pullup-enable;
+		};
+
+		p3h_i3c2c: target-port@4 {
+			reg = <0x4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mode = "i3c";
+			pullup-enable;
+		};
+
+		p3h_se_smbus: target-port@5 {
+			reg = <0x5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mode = "smbus";
+			pullup-enable;
+		};
+
+		p3h_cam1_io: target-port@6 {
+			reg = <0x6>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mode = "gpio";
+			pullup-enable;
+		};
+
+		p3h_cam2_io: target-port@7 {
+			reg = <0x7>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			mode = "gpio";
+			pullup-enable;
+		};
+	};
+};
+
 &lpuart7 {
 	/* Lidar */
 	pinctrl-names = "default";
