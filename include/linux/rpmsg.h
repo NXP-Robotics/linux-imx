@@ -118,7 +118,7 @@ struct rpmsg_driver {
 	void (*remove)(struct rpmsg_device *dev);
 	int (*callback)(struct rpmsg_device *, void *, int, void *, u32);
 	int (*flowcontrol)(struct rpmsg_device *, void *, bool);
-	int (*match)(struct rpmsg_device *dev, struct rpmsg_driver *drv);
+	int (*match)(struct rpmsg_device *dev, const struct rpmsg_driver *drv);
 };
 
 static inline u16 rpmsg16_to_cpu(struct rpmsg_device *rpdev, __rpmsg16 val)

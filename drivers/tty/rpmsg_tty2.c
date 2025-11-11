@@ -345,7 +345,7 @@ static int rpmsg_tty_callback(struct rpmsg_device *rpdev,
 	return ret;
 }
 
-static int rpmsg_tty_match(struct rpmsg_device *dev, struct rpmsg_driver *drv)
+static int rpmsg_tty_match(struct rpmsg_device *dev, const struct rpmsg_driver *drv)
 {
 	const char *devname = dev->id.name;
 	const char drvname[] = "rpmsg-tty";
