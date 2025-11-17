@@ -67,6 +67,32 @@
 		gpio = <&i2c4_ioexp20 4 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
+
+	usdhc3_pwrseq: usdhc3-pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&i2c3_ioexp23 16 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+		post-power-on-delay-ms = <200>;
+	};
+
+	reg_pcie0: regulator-pcie0 {
+		compatible = "regulator-fixed";
+		regulator-name = "M2_KEYM_PWREN_B";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp23 0 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+		enable-active-low;
+		regulator-always-on;
+	};
+
+	reg_pcie1: regulator-pcie1 {
+		compatible = "regulator-fixed";
+		regulator-name = "M2_KEYM_PWREN_B";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp23 2 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+		enable-active-low;
+		regulator-always-on;
+	};
 };
 
 &lpi2c3 {
@@ -79,22 +105,207 @@
 	status = "okay";
 
 	i2c3_ioexp21: i2c3-gpio@21 {
-		compatible = "nxp,pcal6524";
+		compatible = "nxp,pcal6408";
 		reg = <0x21>;
 		gpio-controller;
 		#gpio-cells = <2>;
-/*
-interrupt connected to pcal6416 managed by m33
+
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_i2c3_ioexp22>;
+		pinctrl-0 = <&pinctrl_i2c3_ioexp21>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
-		interrupt-parent = <&gpio3>;
-		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
-*/
+		interrupt-parent = <&gpio4>;
+		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+
 		status = "okay";
 
-		
+		rtl8211_pme_int_b: rtl8211-pme-int-b {
+			gpio-hog;
+			gpios = <0 (GPIO_ACTIVE_LOW)>;
+			input;
+		};
+
+		// rtl8211_phyrst_b: rtl8211-pme-int-b {
+		// 	gpio-hog;
+		// 	gpios = <1 (GPIO_ACTIVE_LOW  | GPIO_OPEN_DRAIN)>;
+		// 	output-low;
+		// };
+
+		/* eth_wake_int can be used for both these SJA1110 i/o depending on R552 and R580:
+		 *	- WAKE_IN_OUT (wakeup)
+		 *	- INT_N (interrupt)
+		 * TODO: remove one resistor; INT_N recommends a pullup but WAKE_IN_OUT pulls it to ground
+		 */
+		eth_wake_int: eth-wake-int {
+			gpio-hog;
+			gpios = <2 (GPIO_ACTIVE_LOW)>;
+			input;
+		};
+
+		eth_rst: eth-rst {
+			gpio-hog;
+			gpios = <3 (GPIO_ACTIVE_LOW)>;
+			output-low;
+		};
+
+		// io_wake_int: io-wake-int {
+		// 	gpio-hog;
+		// 	gpios = <4 (GPIO_ACTIVE_LOW)>;
+		// 	input;
+		// };
+	};
+
+	i2c3_ioexp23: i2c3-gpio@23 {
+		compatible = "nxp,pcal6524";
+		reg = <0x23>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		status = "okay";
+
+		// m2_keym_pwren_b: m2-keym-pwren-b {
+		// 	gpio-hog;
+		// 	gpios = <0 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+		// 	output-high;
+		// };
+
+		// m2_keym_perst_b: m2-keym-perst-b {
+		// 	gpio-hog;
+		// 	gpios = <1 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+		// 	output-low;
+		// };
+
+		// m2_keyb_pwren_b: m2-keyb-pwren-b {
+		// 	gpio-hog;
+		// 	gpios = <2 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+		// 	output-high;
+		// };
+
+		// m2_keyb_perst_b: m2-keyb-perst-b {
+		// 	gpio-hog;
+		// 	gpios = <3 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+		// 	output-low;
+		// };
+
+		m2_keyb_fcpo_b: m2-keyb-fcpo-b {
+			gpio-hog;
+			gpios = <4 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+			output-low;
+		};
+
+		m2_keyb_reset_b: m2-keyb-reset-b {
+			gpio-hog;
+			gpios = <5 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+			output-low;
+		};
+
+		m2_keyb_wdisable1_b: m2-keyb-wdisable1-b {
+			gpio-hog;
+			gpios = <6 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+			output-low;
+		};
+
+		m2_keyb_wdisable2_b: m2-keyb-wdisable2-b {
+			gpio-hog;
+			gpios = <7 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+			output-low;
+		};
+
+		m2_keym_pedet: m2-keym-pedet {
+			gpio-hog;
+			gpios = <8 GPIO_ACTIVE_LOW>;
+			input;
+		};
+
+		m2_keyb_config0: m2-keyb-config0 {
+			gpio-hog;
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			input;
+		};
+
+		m2_keyb_config1: m2-keyb-config1 {
+			gpio-hog;
+			gpios = <10 GPIO_ACTIVE_LOW>;
+			input;
+		};
+
+		m2_keyb_config2: m2-keyb-config2 {
+			gpio-hog;
+			gpios = <11 GPIO_ACTIVE_LOW>;
+			input;
+		};
+
+		m2_keyb_config3: m2-keyb-config3 {
+			gpio-hog;
+			gpios = <12 GPIO_ACTIVE_LOW>;
+			input;
+		};
+
+		m2_keyb_gpio5: m2-keyb-gpio5 {
+			gpio-hog;
+			gpios = <13 GPIO_ACTIVE_LOW>;
+			input;
+		};
+
+		m2_keyb_gpio6: m2-keyb-gpio6 {
+			gpio-hog;
+			gpios = <14 GPIO_ACTIVE_LOW>;
+			input;
+		};
+
+		m2_keyb_gpio7: m2-keyb-gpio7 {
+			gpio-hog;
+			gpios = <15 GPIO_ACTIVE_LOW>;
+			input;
+		};
+
+		// iw612_pd_b: iw612-pd-b {
+		// 	gpio-hog;
+		// 	gpios = <16 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+		// 	output-low;
+		// };
+
+		iw612_ind_rst_wl: iw612-ind-rst-wl {
+			gpio-hog;
+			gpios = <17 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
+
+		iw612_ind_rst_bt: iw612-ind-rst-bt {
+			gpio-hog;
+			gpios = <18 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
+
+		iw612_ind_rst_15_4: iw612-ind-rst-15_4 {
+			gpio-hog;
+			gpios = <19 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
+
+		iw612_rst_ind: iw612-rst-ind {
+			gpio-hog;
+			gpios = <20 GPIO_ACTIVE_HIGH>;
+			input;
+		};
+
+		iw612_wl_wake_in: iw612-wl-wake-in {
+			gpio-hog;
+			gpios = <21 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
+
+		iw612_bt15_4_wake_in: iw612-bt15-4-wake-in {
+			gpio-hog;
+			gpios = <22 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
+
+		p3h_cp_sel: p3h-cp-sel {
+			gpio-hog;
+			gpios = <23 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+			/* set HIGH-Z mode to control selection in software */
+			input;
+		};
 	};
 
 	ptn5110_usb3: tcpc_usb3@50 {
@@ -102,9 +313,8 @@ interrupt connected to pcal6416 managed by m33
 		pinctrl-names = "default";
 		reg = <0x50>;
 
-		// TODO: interrupt on port ENET2_RD1 line USB_PTN5110_ALERT_B
-		// interrupt-parent = <&i2c2_ioexp21>;
-		// interrupts = <10 IRQ_TYPE_EDGE_FALLING>; // 10 = USB2_PTN_INT_B
+		interrupt-parent = <&gpio4>;
+		interrupts = <25 IRQ_TYPE_EDGE_FALLING>; // 25 = USB_PTN5110_ALERT_B (ENET2_RD1)
 
 		port {
 			typec_dr_sw3: endpoint {
@@ -138,12 +348,12 @@ interrupt connected to pcal6416 managed by m33
 
 	ptn5110_usb2: tcpc_usb2@51 {
 		compatible = "nxp,ptn5110";
+		pinctrl-0 = <&pinctrl_ptn5110_usb>;
 		pinctrl-names = "default";
 		reg = <0x51>;
 
-		// TODO: interrupt on port ENET2_RD1 line USB_PTN5110_ALERT_B
-		// interrupt-parent = <&i2c2_ioexp21>;
-		// interrupts = <10 IRQ_TYPE_EDGE_FALLING>; // 10 = USB2_PTN_INT_B
+		interrupt-parent = <&gpio4>;
+		interrupts = <25 IRQ_TYPE_EDGE_FALLING>; // 25 = USB_PTN5110_ALERT_B (ENET2_RD1)
 
 		typec_con2: connector {
 			compatible = "usb-c-connector";
@@ -180,25 +390,40 @@ interrupt connected to pcal6416 managed by m33
 	status = "okay";
 
 	i2c4_ioexp20: i2c4-gpio@20 {
-		compatible = "nxp,pcal6524";
+		compatible = "nxp,pcal6416";
 		reg = <0x20>;
 		gpio-controller;
 		#gpio-cells = <2>;
-/*
-interrupt connected to pcal6416 managed by m33
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_i2c3_ioexp22>;
+
 		interrupt-controller;
 		#interrupt-cells = <2>;
-		interrupt-parent = <&gpio3>;
-		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
-*/
+		interrupt-parent = <&i2c3_ioexp21>;
+		interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
+
 		status = "okay";
 
 		can_power_en: can-power-en {
 			gpio-hog;
 			gpios = <7 GPIO_ACTIVE_HIGH>;
 			output-high;
+		};
+
+		can1_err_n: can1-err-n {
+			gpio-hog;
+			gpios = <8 GPIO_ACTIVE_LOW>;
+			input;
+		};
+
+		can2_err_n: can2-err-n {
+			gpio-hog;
+			gpios = <9 GPIO_ACTIVE_LOW>;
+			input;
+		};
+
+		can3_err_n: can3-err-n {
+			gpio-hog;
+			gpios = <10 GPIO_ACTIVE_LOW>;
+			input;
 		};
 
 		led_r: led-r {
@@ -284,7 +509,7 @@ interrupt connected to pcal6416 managed by m33
 			reg = <0x0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			mode = "i3c";
+			mode = "smbus";
 			pullup-enable;
 
 			// --- example node ---
@@ -301,8 +526,41 @@ interrupt connected to pcal6416 managed by m33
 			reg = <0x1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			mode = "i3c";
+			mode = "smbus";
 			pullup-enable;
+
+			ov5640_csi0: ov5640@3c {
+				compatible = "ovti,ov5640";
+				reg = <0x3c>;
+				clocks = <&scmi_clk IMX95_CLK_24M>;
+				clock-names = "xclk";
+				clock-frequency = <24000000>;
+				status = "okay";
+				//TODO: powerdown-gpios = <&i2c3_ioexp22 19 GPIO_ACTIVE_HIGH>;
+				//TODO: reset-gpios = <&i2c3_ioexp22 20 GPIO_ACTIVE_LOW>;
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+					};
+
+					port@1 {
+						reg = <1>;
+					};
+
+					port@2 {
+						reg = <2>;
+						ov5640_csi0_out: endpoint {
+							remote-endpoint = <&mipi_csi0_ep>;
+							data-lanes = <1 2>;
+							clock-lanes = <0>;
+						};
+					};
+				};
+			};
 		};
 
 		p3h_gpio: target-port@2 {
@@ -325,8 +583,41 @@ interrupt connected to pcal6416 managed by m33
 			reg = <0x4>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			mode = "i3c";
+			mode = "smbus";
 			pullup-enable;
+
+			ov5640_csi1: ov5640@3c {
+				compatible = "ovti,ov5640";
+				reg = <0x3c>;
+				clocks = <&scmi_clk IMX95_CLK_24M>;
+				clock-names = "xclk";
+				clock-frequency = <24000000>;
+				status = "okay";
+				//TODO: powerdown-gpios = <&i2c3_ioexp22 21 GPIO_ACTIVE_HIGH>;
+				//TODO: reset-gpios = <&i2c3_ioexp22 22 GPIO_ACTIVE_LOW>;
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+					};
+
+					port@1 {
+						reg = <1>;
+					};
+
+					port@2 {
+						reg = <2>;
+						ov5640_csi1_out: endpoint {
+							remote-endpoint = <&mipi_csi1_ep>;
+							data-lanes = <1 2>;
+							clock-lanes = <0>;
+						};
+					};
+				};
+			};
 		};
 
 		p3h_se_smbus: target-port@5 {
@@ -455,6 +746,32 @@ interrupt connected to pcal6416 managed by m33
 	status = "okay";
 };
 
+&pcie0 {
+	pinctrl-0 = <&pinctrl_pcie0>;
+	pinctrl-names = "default";
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	reset-gpio = <&i2c3_ioexp23 1 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+	vpcie-supply = <&reg_pcie0>;
+	status = "okay";
+};
+
+&pcie1 {
+	pinctrl-0 = <&pinctrl_pcie1>;
+	pinctrl-names = "default";
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	reset-gpio = <&i2c3_ioexp23 3 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+	vpcie-supply = <&reg_pcie1>;
+	status = "okay";
+};
+
+&pcie1_ep {
+	pinctrl-0 = <&pinctrl_pcie1>;
+	pinctrl-names = "default";
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	vpcie-supply = <&reg_pcie1>;
+	status = "okay";
+};
+
 &scmi_iomuxc {
 	pinctrl_uart4: uart4grp {
 		fsl,pins = <
@@ -477,12 +794,24 @@ interrupt connected to pcal6416 managed by m33
 
 	pinctrl_lpspi4: lpspi4grp {
 		fsl,pins = <
-			IMX95_PAD_GPIO_IO34__LPSPI4_PCS0	0x3fe
-			IMX95_PAD_GPIO_IO33__LPSPI4_PCS1	0x3fe
-			IMX95_PAD_GPIO_IO16__LPSPI4_PCS2	0x3fe
-			IMX95_PAD_GPIO_IO19__LPSPI4_SIN		0x3fe
-			IMX95_PAD_GPIO_IO36__LPSPI4_SOUT	0x3fe
-			IMX95_PAD_GPIO_IO37__LPSPI4_SCK		0x3fe
+			IMX95_PAD_GPIO_IO34__LPSPI4_PCS0		0x3fe
+			IMX95_PAD_GPIO_IO33__LPSPI4_PCS1		0x3fe
+			IMX95_PAD_GPIO_IO16__LPSPI4_PCS2		0x3fe
+			IMX95_PAD_GPIO_IO19__LPSPI4_SIN			0x3fe
+			IMX95_PAD_GPIO_IO36__LPSPI4_SOUT		0x3fe
+			IMX95_PAD_GPIO_IO37__LPSPI4_SCK			0x3fe
+		>;
+	};
+
+	pinctrl_i2c3_ioexp21: i2c3_ioexp21grp {
+		fsl,pins = <
+			IMX95_PAD_ENET2_RD3__GPIO4_IO_BIT27		0x31e
+		>;
+	};
+
+	pinctrl_ptn5110_usb: ptn5110_usbgrp {
+		fsl,pins = <
+			IMX95_PAD_ENET2_RD1__GPIO4_IO_BIT25		0x31e
 		>;
 	};
 };

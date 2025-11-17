@@ -89,7 +89,7 @@
 
 	usdhc3_pwrseq: usdhc3-pwrseq {
 		compatible = "mmc-pwrseq-simple";
-		reset-gpios = <&i2c2_ioexp21 22 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&i2c2_ioexp21 22 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
 		post-power-on-delay-ms = <200>;
 	};
 
@@ -598,168 +598,6 @@ interrupt connected to pcal6416 managed by m33
 	status = "okay";
 };
 
-&usdhc1 {
-	pinctrl-names = "default", "state_100mhz", "state_200mhz", "sleep";
-	pinctrl-0 = <&pinctrl_usdhc1>;
-	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
-	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
-	pinctrl-3 = <&pinctrl_usdhc1>;
-	bus-width = <8>;
-	non-removable;
-	no-sdio;
-	no-sd;
-	status = "okay";
-};
-
-&usdhc2 {
-	pinctrl-names = "default", "state_100mhz", "state_200mhz", "sleep";
-	pinctrl-0 = <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>;
-	pinctrl-1 = <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>;
-	pinctrl-2 = <&pinctrl_usdhc2_200mhz>, <&pinctrl_usdhc2_gpio>;
-	pinctrl-3 = <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>;
-	cd-gpios = <&gpio3 0 GPIO_ACTIVE_LOW>;
-	fsl,cd-gpio-wakeup-disable;
-	vmmc-supply = <&reg_usdhc2_vmmc>;
-	bus-width = <4>;
-	status = "okay";
-};
-
-&usdhc3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_usdhc3>;
-	vmmc-supply = <&reg_usdhc3_vmmc>;
-	mmc-pwrseq = <&usdhc3_pwrseq>;
-	bus-width = <4>;
-	keep-power-in-suspend;
-	non-removable;
-	status = "okay";
-};
-
-&mipi_csi0 {
-	status = "okay";
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-			mipi_csi0_ep: endpoint {
-				remote-endpoint = <&ov5640_csi0_out>;
-				data-lanes = <1 2>;
-				clock-lanes = <0>;
-			};
-		};
-
-		port@1 {
-			reg = <1>;
-				mipi_csi0_out: endpoint {
-				remote-endpoint = <&formatter_0_in>;
-			};
-		};
-	};
-};
-
-&mipi_csi1 {
-	status = "okay";
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-			mipi_csi1_ep: endpoint {
-				remote-endpoint = <&ov5640_csi1_out>;
-				data-lanes = <1 2>;
-				clock-lanes = <0>;
-			};
-		};
-
-		port@1 {
-			reg = <1>;
-				mipi_csi1_out: endpoint {
-				remote-endpoint = <&formatter_1_in>;
-			};
-		};
-	};
-};
-
-&csi_pixel_formatter_0 {
-	status = "okay";
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-
-			formatter_0_in: endpoint {
-				remote-endpoint = <&mipi_csi0_out>;
-			};
-		};
-
-		port@1 {
-			reg = <1>;
-
-			formatter_0_out: endpoint {
-				remote-endpoint = <&isi_in_2>;
-			};
-		};
-	};
-};
-
-&csi_pixel_formatter_1 {
-	status = "okay";
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-
-			formatter_1_in: endpoint {
-				remote-endpoint = <&mipi_csi1_out>;
-			};
-		};
-
-		port@1 {
-			reg = <1>;
-
-			formatter_1_out: endpoint {
-				remote-endpoint = <&isi_in_3>;
-			};
-		};
-	};
-};
-
-&isi {
-	status = "okay";
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@2 {
-			reg = <2>;
-
-			isi_in_2: endpoint {
-				remote-endpoint = <&formatter_0_out>;
-			};
-		};
-
-		port@3 {
-			reg = <3>;
-
-			isi_in_3: endpoint {
-				remote-endpoint = <&formatter_1_out>;
-			};
-		};
-	};
-};
-
 &scmi_iomuxc {
 	pinctrl_uart5: uart5grp {
 		fsl,pins = <
@@ -779,12 +617,32 @@ interrupt connected to pcal6416 managed by m33
 		>;
 	};
 
+	pinctrl_lpi2c2: lpi2c2grp {
+		fsl,pins = <
+			IMX95_PAD_I2C2_SCL__AONMIX_TOP_LPI2C2_SCL	0x40000b9e
+			IMX95_PAD_I2C2_SDA__AONMIX_TOP_LPI2C2_SDA	0x40000b9e
+		>;
+	};
+
 	pinctrl_lpspi7: lpspi7grp {
 		fsl,pins = <
 			IMX95_PAD_GPIO_IO04__LPSPI7_PCS0	0x3fe
 			IMX95_PAD_GPIO_IO05__LPSPI7_SIN		0x3fe
 			IMX95_PAD_GPIO_IO06__LPSPI7_SOUT	0x3fe
 			IMX95_PAD_GPIO_IO07__LPSPI7_SCK		0x3fe
+		>;
+	};
+
+	pinctrl_i2c2_ioexp21: i2c2_ioexp21grp {
+		fsl,pins = <
+			IMX95_PAD_CCM_CLKO1__GPIO3_IO_BIT26			0x31e
+		>;
+	};
+
+	pinctrl_flexcan5: flexcan5grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO22__CAN5_TX			0x39e
+			IMX95_PAD_GPIO_IO23__CAN5_RX			0x39e
 		>;
 	};
 };
