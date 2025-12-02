@@ -314,7 +314,7 @@
 		reg = <0x50>;
 
 		interrupt-parent = <&gpio4>;
-		interrupts = <25 IRQ_TYPE_EDGE_FALLING>; // 25 = USB_PTN5110_ALERT_B (ENET2_RD1)
+		interrupts = <25 IRQ_TYPE_LEVEL_LOW>; // 25 = USB_PTN5110_ALERT_B (ENET2_RD1)
 
 		port {
 			typec_dr_sw3: endpoint {
@@ -353,7 +353,7 @@
 		reg = <0x51>;
 
 		interrupt-parent = <&gpio4>;
-		interrupts = <25 IRQ_TYPE_EDGE_FALLING>; // 25 = USB_PTN5110_ALERT_B (ENET2_RD1)
+		interrupts = <25 IRQ_TYPE_LEVEL_LOW>; // 25 = USB_PTN5110_ALERT_B (ENET2_RD1)
 
 		typec_con2: connector {
 			compatible = "usb-c-connector";
