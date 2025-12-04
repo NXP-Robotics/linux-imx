@@ -302,9 +302,9 @@
 
 		p3h_cp_sel: p3h-cp-sel {
 			gpio-hog;
-			gpios = <23 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
-			/* set HIGH-Z mode to control selection in software */
-			input;
+			gpios = <23 GPIO_ACTIVE_HIGH>;
+			/* set to CP0 */
+			output-low;
 		};
 	};
 
@@ -453,11 +453,12 @@
 };
 
 &i3c2 {
-        #address-cells = <3>;
-        #size-cells = <0>;
+	i2c-scl-hz = <400000>;
+	pinctrl-0 = <&pinctrl_i3c2>;
+	pinctrl-names = "default";
 	status = "okay";
 
-        hub@70,236153000c2 {
+    hub@70,236153000c2 {
 		compatible = "nxp,p3h2840";
 		reg = <0x70 0x236 0x3000c2>;
 		#address-cells = <1>;
@@ -773,6 +774,13 @@
 };
 
 &scmi_iomuxc {
+	pinctrl_i3c2: i3c2grp {
+		fsl,pins = <
+			IMX95_PAD_ENET1_MDC__I3C2_SCL			0x4000019e
+			IMX95_PAD_ENET1_MDIO__I3C2_SDA			0x4000019e
+		>;
+	};
+
 	pinctrl_uart4: uart4grp {
 		fsl,pins = <
 			IMX95_PAD_ENET2_TD0__LPUART4_TX			0x31e
