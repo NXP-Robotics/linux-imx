@@ -86,12 +86,20 @@
 
 	reg_pcie1: regulator-pcie1 {
 		compatible = "regulator-fixed";
-		regulator-name = "M2_KEYM_PWREN_B";
+		regulator-name = "M2_KEYB_PWREN_B";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		gpio = <&i2c3_ioexp23 2 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
 		enable-active-low;
 		regulator-always-on;
+	};
+
+	touch_reg: touch_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "touch_reg_1";
+		gpio = <&display_mcu 1 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <50000>;
+		enable-active-high;
 	};
 };
 
@@ -398,7 +406,7 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		interrupt-parent = <&i2c3_ioexp21>;
-		interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
 
 		status = "okay";
 
@@ -529,39 +537,6 @@
 			#size-cells = <0>;
 			mode = "smbus";
 			pullup-enable;
-
-			ov5640_csi0: ov5640@3c {
-				compatible = "ovti,ov5640";
-				reg = <0x3c>;
-				clocks = <&scmi_clk IMX95_CLK_24M>;
-				clock-names = "xclk";
-				clock-frequency = <24000000>;
-				status = "okay";
-				//TODO: powerdown-gpios = <&i2c3_ioexp22 19 GPIO_ACTIVE_HIGH>;
-				//TODO: reset-gpios = <&i2c3_ioexp22 20 GPIO_ACTIVE_LOW>;
-
-				ports {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
-					port@0 {
-						reg = <0>;
-					};
-
-					port@1 {
-						reg = <1>;
-					};
-
-					port@2 {
-						reg = <2>;
-						ov5640_csi0_out: endpoint {
-							remote-endpoint = <&mipi_csi0_ep>;
-							data-lanes = <1 2>;
-							clock-lanes = <0>;
-						};
-					};
-				};
-			};
 		};
 
 		p3h_gpio: target-port@2 {
@@ -586,39 +561,27 @@
 			#size-cells = <0>;
 			mode = "smbus";
 			pullup-enable;
+			status = "okay";
 
-			ov5640_csi1: ov5640@3c {
-				compatible = "ovti,ov5640";
-				reg = <0x3c>;
-				clocks = <&scmi_clk IMX95_CLK_24M>;
-				clock-names = "xclk";
-				clock-frequency = <24000000>;
+			display_mcu: display_mcu@45	{
+				compatible = "raspberrypi,v2-touchscreen-panel-regulator";
+				reg = <0x45>;
+				gpio-controller;
+				#gpio-cells = <2>;
 				status = "okay";
-				//TODO: powerdown-gpios = <&i2c3_ioexp22 21 GPIO_ACTIVE_HIGH>;
-				//TODO: reset-gpios = <&i2c3_ioexp22 22 GPIO_ACTIVE_LOW>;
-
-				ports {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
-					port@0 {
-						reg = <0>;
-					};
-
-					port@1 {
-						reg = <1>;
-					};
-
-					port@2 {
-						reg = <2>;
-						ov5640_csi1_out: endpoint {
-							remote-endpoint = <&mipi_csi1_ep>;
-							data-lanes = <1 2>;
-							clock-lanes = <0>;
-						};
-					};
-				};
 			};
+
+			gt911: gt911@5d {
+				compatible = "goodix,gt911";
+				reg = <0x5d>;
+				AVDD28-supply = <&touch_reg>;
+				touchscreen-size-x = <720>;
+				touchscreen-size-y = <1280>;
+				touchscreen-x-mm = <90>;
+				touchscreen-y-mm = <151>;
+				status = "okay";
+			};
+
 		};
 
 		p3h_se_smbus: target-port@5 {
@@ -633,7 +596,7 @@
 			reg = <0x6>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			mode = "gpio";
+			mode = "smbus"; /* HACK put in smbus to get a logic high level */
 			pullup-enable;
 		};
 
@@ -641,7 +604,7 @@
 			reg = <0x7>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			mode = "gpio";
+			mode = "smbus"; /* HACK put in smbus to get a logic high level */
 			pullup-enable;
 		};
 	};
@@ -771,6 +734,66 @@
 	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
 	vpcie-supply = <&reg_pcie1>;
 	status = "okay";
+};
+
+&display_pixel_link {
+	status = "okay";
+};
+
+&dpu {
+	assigned-clocks = <&scmi_clk IMX95_CLK_DISP1PIX>,
+			  <&scmi_clk IMX95_CLK_VIDEOPLL1_VCO>,
+			  <&scmi_clk IMX95_CLK_VIDEOPLL1>;
+	assigned-clock-parents = <&scmi_clk IMX95_CLK_VIDEOPLL1>;
+	assigned-clock-rates = <0>, <3000000000>, <333333333>;
+};
+
+&mipi_csi0 {
+	status = "disabled";
+};
+
+&mipi_dsi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	panel@0 {
+		reg = <0>;
+		compatible = "raspberrypi,dsi-7inch";
+		reset-gpio = <&display_mcu 0 GPIO_ACTIVE_LOW>;
+		backlight = <&display_mcu>;
+		status = "okay";
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
+
+&pixel_interleaver {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	channel@0 {
+		reg = <0>;
+		status = "okay";
+	};
 };
 
 &scmi_iomuxc {
