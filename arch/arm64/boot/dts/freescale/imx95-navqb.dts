@@ -463,7 +463,8 @@
 &i3c2 {
 	i2c-scl-hz = <400000>;
 	pinctrl-0 = <&pinctrl_i3c2>;
-	pinctrl-names = "default";
+	pinctrl-1 = <&pinctrl_i3c2>;
+	pinctrl-names = "default", "sleep";
 	status = "okay";
 
     hub@70,236153000c2 {
@@ -799,8 +800,8 @@
 &scmi_iomuxc {
 	pinctrl_i3c2: i3c2grp {
 		fsl,pins = <
-			IMX95_PAD_ENET1_MDC__I3C2_SCL			0x4000019e
-			IMX95_PAD_ENET1_MDIO__I3C2_SDA			0x4000019e
+			IMX95_PAD_ENET1_MDC__I3C2_SCL			0x40000186
+			IMX95_PAD_ENET1_MDIO__I3C2_SDA			0x40000186
 		>;
 	};
 
