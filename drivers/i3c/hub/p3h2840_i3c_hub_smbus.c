@@ -609,7 +609,7 @@ int p3h2x4x_tp_smbus_algo(struct p3h2x4x_i3c_hub_dev *p3h2x4x_i3c_hub, int tp)
 	smbus_adapter->class = I2C_CLASS_HWMON;
 	smbus_adapter->algo = &p3h2x4x_tp_i2c_algorithm;
 	smbus_adapter->dev.parent = p3h2x4x_i3c_hub->dev;
-	smbus_adapter->dev.of_node =  p3h2x4x_i3c_hub->tp_bus->of_node;
+	smbus_adapter->dev.of_node =  p3h2x4x_i3c_hub->tp_bus[tp].of_node;
 	sprintf(smbus_adapter->name, "p3h2x4x-i3c-hub.tp-port-%d", tp);
 
 	i2c_set_adapdata(smbus_adapter, &p3h2x4x_i3c_hub->tp_bus[tp]);
