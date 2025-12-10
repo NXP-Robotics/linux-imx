@@ -219,7 +219,7 @@
 #define P3H2x4x_SMBUS_TRANSACTION_FINISH_FLAG		1
 #define P3H2x4x_SMBUS_CNTRL_STATUS_TXN_SHIFT		4
 
-#define P3H2x4x_SMBUS_CNTRL_STATUS_TXN_OK		    0
+#define P3H2x4x_SMBUS_CNTRL_STATUS_TXN_OK		0
 #define P3H2x4x_SMBUS_CNTRL_STATUS_TXN_ADDR_NAK		1
 #define P3H2x4x_SMBUS_CNTRL_STATUS_TXN_DATA_NAK		2
 #define P3H2x4x_SMBUS_CNTRL_STATUS_TXN_WTR_NAK		3
@@ -295,10 +295,6 @@ struct tp_setting {
 };
 
 struct dt_settings {
-	bool cp0_ldo_en;
-	bool cp1_ldo_en;
-	bool tp0145_ldo_en;
-	bool tp2367_ldo_en;
 	int cp0_ldo_volt;
 	int cp1_ldo_volt;
 	int tp0145_ldo_volt;
@@ -352,8 +348,7 @@ struct p3h2x4x_i3c_hub_dev {
 };
 
 /**
- * p3h2x4x_tp_smbus_algo - add i2c adapter for target port who
- * configured as SMBus.
+ * p3h2x4x_tp_smbus_algo - add i2c adapter for target port configured as SMBus.
  * @priv: p3h2x4x device structure.
  * @tp: target port.
  * Return: 0 in case of success, a negative EINVAL code if the error.
@@ -361,8 +356,7 @@ struct p3h2x4x_i3c_hub_dev {
 int p3h2x4x_tp_smbus_algo(struct p3h2x4x_i3c_hub_dev *p3h2x4x_i3c_hub, int tp);
 
 /**
- * p3h2x4x_tp_i3c_algo - register i3c controller for target port who
- * configured as I3C.
+ * p3h2x4x_tp_i3c_algo - register i3c controller for target port configured as I3C.
  * @priv: p3h2x4x device structure.
  * @tp: target port.
  * Return: 0 in case of success, a negative EINVAL code if the error.
@@ -377,4 +371,3 @@ int p3h2x4x_tp_i3c_algo(struct p3h2x4x_i3c_hub_dev *p3h2x4x_i3c_hub, int tp);
 void p3h2x4x_ibi_handler(struct i3c_device *i3cdev,
 			 const struct i3c_ibi_payload *payload);
 #endif /* P3H2840_I3C_HUB_H */
-

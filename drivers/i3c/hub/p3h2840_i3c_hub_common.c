@@ -12,7 +12,7 @@
 #include "p3h2840_i3c_hub.h"
 
 /* LDO voltage DT settings */
-#define P3H2x4x_DT_LDO_VOLT_1_0V                1000
+#define P3H2x4x_DT_LDO_VOLT_1_0V		1000
 #define P3H2x4x_DT_LDO_VOLT_1_1V		1100
 #define P3H2x4x_DT_LDO_VOLT_1_2V		1200
 #define P3H2x4x_DT_LDO_VOLT_1_8V		1800
@@ -170,38 +170,6 @@ static int p3h2x4x_configure_ldo(struct device *dev)
 			dev_warn(dev, "Failed to set TP2367 voltage (ignoring)\n");
 	}
 
-	/* Enable the regulators */
-	if (p3h2x4x_i3c_hub->rp3h2x4x.rcp0) {
-		ret = regulator_enable(p3h2x4x_i3c_hub->rp3h2x4x.rcp0);
-		if (ret < 0) {
-			dev_err(dev, "Failed to enable cp0 ldo\n");
-			return ret;
-		}
-	}
-
-	if (p3h2x4x_i3c_hub->rp3h2x4x.rcp1) {
-		ret = regulator_enable(p3h2x4x_i3c_hub->rp3h2x4x.rcp1);
-		if (ret < 0) {
-			dev_err(dev, "Failed to enable cp1 ldo\n");
-			return ret;
-		}
-	}
-
-	if (p3h2x4x_i3c_hub->rp3h2x4x.rtp0145) {
-		ret = regulator_enable(p3h2x4x_i3c_hub->rp3h2x4x.rtp0145);
-		if (ret < 0) {
-			dev_err(dev, "Failed to enable tp0145 ldo\n");
-			return ret;
-		}
-	}
-
-	if (p3h2x4x_i3c_hub->rp3h2x4x.rtp2367) {
-		ret = regulator_enable(p3h2x4x_i3c_hub->rp3h2x4x.rtp2367);
-		if (ret < 0) {
-			dev_err(dev, "Failed to enable tp2367 ldo\n");
-			return ret;
-		}
-	}
 	return 0;
 }
 
@@ -505,10 +473,9 @@ static void p3h2x4x_get_tp_of_get_setting(struct device *dev,
 					  const struct device_node *node,
 					  struct tp_setting tp_setting[])
 {
-	struct device_node *tp_node;
 	u64 id;
 
-	for_each_available_child_of_node(node, tp_node) {
+	for_each_available_child_of_node_scoped(node, tp_node) {
 		if (of_property_read_reg(tp_node, 0, &id, NULL))
 			continue;
 
@@ -526,7 +493,7 @@ static void p3h2x4x_get_tp_of_get_setting(struct device *dev,
 		tp_setting[id].ibi_en =
 					of_property_read_bool(tp_node, "ibi-enable");
 		tp_setting[id].always_enable =
-					of_property_read_bool(tp_node, "hub_bridge_en");
+					of_property_read_bool(tp_node, "hub-bridge-en");
 
 		p3h2x4x_get_tp_local_device_dt_setting(dev, tp_node, id);
 	}
@@ -536,15 +503,6 @@ static void p3h2x4x_of_get_p3h2x4x_conf(struct device *dev,
 					const struct device_node *node)
 {
 	struct p3h2x4x_i3c_hub_dev *p3h2x4x_i3c_hub = dev_get_drvdata(dev);
-
-	p3h2x4x_i3c_hub->settings.cp0_ldo_en =
-				of_property_read_bool(node, "cp0-ldo-enable");
-	p3h2x4x_i3c_hub->settings.cp1_ldo_en =
-				of_property_read_bool(node, "cp1-ldo-enable");
-	p3h2x4x_i3c_hub->settings.tp0145_ldo_en =
-				of_property_read_bool(node, "tp0145-ldo-enable");
-	p3h2x4x_i3c_hub->settings.tp2367_ldo_en =
-				of_property_read_bool(node, "tp2367-ldo-enable");
 
 	of_property_read_u32(node, "cp0-ldo-microvolt",
 			     &p3h2x4x_i3c_hub->settings.cp0_ldo_volt);
@@ -593,9 +551,9 @@ static void p3h2x4x_of_default_configuration(struct device *dev)
 static int p3h2x4x_i3c_hub_probe(struct platform_device *pdev)
 {
 	struct p3h2x4x_dev *p3h2x4x = dev_get_drvdata(pdev->dev.parent);
-	struct device_node *node __free(device_node) = NULL;
 	struct p3h2x4x_i3c_hub_dev *p3h2x4x_i3c_hub;
 	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
 	int ret, i;
 
 	p3h2x4x_i3c_hub = devm_kzalloc(dev, sizeof(*p3h2x4x_i3c_hub), GFP_KERNEL);
@@ -625,7 +583,7 @@ static int p3h2x4x_i3c_hub_probe(struct platform_device *pdev)
 	/* get hub node from DT */
 	node =  dev->of_node;
 	if (!node) {
-		dev_dbg(dev, "No DT entry - running with hardware defaults.\n");
+		dev_dbg(dev, "No device tree entry found, using hardware defaults.\n");
 	} else {
 		p3h2x4x_of_get_p3h2x4x_conf(dev, node);
 		p3h2x4x_of_get_tp_dt_conf(dev, node);
@@ -723,18 +681,6 @@ static void p3h2x4x_i3c_hub_remove(struct platform_device *pdev)
 	struct smbus_device *backend = NULL;
 	struct i2c_adapter *tp_adap;
 	u8 i;
-
-	if (p3h2x4x_i3c_hub->rp3h2x4x.rcp0)
-		regulator_disable(p3h2x4x_i3c_hub->rp3h2x4x.rcp0);
-
-	if (p3h2x4x_i3c_hub->rp3h2x4x.rcp1)
-		regulator_disable(p3h2x4x_i3c_hub->rp3h2x4x.rcp1);
-
-	if (p3h2x4x_i3c_hub->rp3h2x4x.rtp0145)
-		regulator_disable(p3h2x4x_i3c_hub->rp3h2x4x.rtp0145);
-
-	if (p3h2x4x_i3c_hub->rp3h2x4x.rtp2367)
-		regulator_disable(p3h2x4x_i3c_hub->rp3h2x4x.rtp2367);
 
 	for (i = 0; i < P3H2x4x_TP_MAX_COUNT; i++) {
 		tp_adap = p3h2x4x_i3c_hub->tp_bus[i].smbus_port_adapter;

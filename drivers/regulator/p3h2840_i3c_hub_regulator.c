@@ -160,4 +160,3 @@ MODULE_AUTHOR("Aman Kumar Pandey <aman.kumarpandey@nxp.com>");
 MODULE_AUTHOR("vikash Bansal <vikash.bansal@nxp.com>");
 MODULE_DESCRIPTION("P3H2x4x I3C HUB driver");
 MODULE_LICENSE("GPL");
-

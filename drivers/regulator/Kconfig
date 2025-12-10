@@ -1061,6 +1061,16 @@ config REGULATOR_PF1550_RPMSG
 	  side via RPMSG.The regulators include three switch and three
 	  ldo.
 
+config REGULATOR_P3H2X4X
+       tristate "P3H2X4X regulator support"
+       depends on MFD_P3H2X4X
+       help
+         This driver provides support for the voltage regulators of the
+         P3H244x/P3H284x multi-function I3C Hub device.
+
+         Say M here if you want to include support for this regulator as
+         a module. The module will be named "p3h2840_i3c_hub_regulator".
+
 config REGULATOR_PFUZE100
 	tristate "Freescale PFUZE100/200/3000/3001 regulator driver"
 	depends on I2C && OF

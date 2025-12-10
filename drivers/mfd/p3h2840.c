@@ -38,8 +38,8 @@ static int p3h2x4x_device_probe_i3c(struct i3c_device *i3cdev)
 
 	p3h2x4x->regmap = devm_regmap_init_i3c(i3cdev, &p3h2x4x_regmap_config);
 	if (IS_ERR(p3h2x4x->regmap)) {
-		ret = PTR_ERR(p3h2x4x->regmap);
-		return dev_err_probe(&i3cdev->dev, ret, "Failed to register I3C HUB regmap\n");
+		return dev_err_probe(&i3cdev->dev, PTR_ERR(p3h2x4x->regmap),
+				     "Failed to register I3C HUB regmap\n");
 	}
 
 	p3h2x4x->is_p3h2x4x_in_i3c = true;
@@ -126,4 +126,3 @@ MODULE_AUTHOR("Aman Kumar Pandey <aman.kumarpandey@nxp.com>");
 MODULE_AUTHOR("vikash Bansal <vikash.bansal@nxp.com>");
 MODULE_DESCRIPTION("P3H2x4x I3C HUB driver");
 MODULE_LICENSE("GPL");
-

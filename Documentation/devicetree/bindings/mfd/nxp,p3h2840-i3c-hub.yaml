@@ -25,12 +25,12 @@ description: |
      peripherals.
 
 allOf:
-  - $ref: i3c.yaml#
+  - $ref: /schemas/i3c/i3c.yaml#
 
 properties:
   compatible:
-   items:
-     - const: nxp,p3h2840
+    items:
+      - const: nxp,p3h2840
 
   cp0-ldo-microvolt:
     description:
@@ -163,12 +163,12 @@ patternProperties:
       local-dev:
         $ref: /schemas/types.yaml#/definitions/uint8-array
         description:
-          SMBus Target Agent can discard transactions of downstream device and not generate an IBI to upstream I3C Hub
-          Controller Port. Up to 8 device (addresses) can be configured as local Devices.
-
+          SMBus Target Agent can discard transactions of downstream device and not
+          generate an IBI to upstream I3C Hub Controller Port. Up to 8 device (addresses)
+          can be configured as local Devices.
           This property is optional. If not provided, local device list will empty.
 
-      hub_bridge_en:
+      hub-bridge-en:
         type: boolean
         description:
           Enables the hub network (Controller port -> target port).
@@ -263,29 +263,29 @@ examples:
             tp0145-supply = <&tp0145>;
 
             regulators {
-              cp0 {
-                regulator-name = "cp0";
-                regulator-min-microvolt = <1000000>;
-                regulator-max-microvolt = <1800000>;
-              };
+                cp0 {
+                    regulator-name = "cp0";
+                    regulator-min-microvolt = <1000000>;
+                    regulator-max-microvolt = <1800000>;
+                };
 
-              cp1 {
-                regulator-name = "cp1";
-                regulator-min-microvolt = <1000000>;
-                regulator-max-microvolt = <1800000>;
-              };
+                cp1 {
+                    regulator-name = "cp1";
+                    regulator-min-microvolt = <1000000>;
+                    regulator-max-microvolt = <1800000>;
+                };
 
-              tp0145 {
-                regulator-name = "tp0145";
-                regulator-min-microvolt = <1000000>;
-                regulator-max-microvolt = <1800000>;
-              };
+                tp0145 {
+                    regulator-name = "tp0145";
+                    regulator-min-microvolt = <1000000>;
+                    regulator-max-microvolt = <1800000>;
+                };
 
-              tp2367 {
-                regulator-name = "tp2367";
-                regulator-min-microvolt = <1000000>;
-                regulator-max-microvolt = <1800000>;
-              };
+                tp2367 {
+                    regulator-name = "tp2367";
+                    regulator-min-microvolt = <1000000>;
+                    regulator-max-microvolt = <1800000>;
+                };
             };
 
             target-port@0 {
@@ -312,8 +312,8 @@ examples:
                 pullup-enable;
 
                 sensor@68,39200144004 {
-                  reg = <0x68 0x392 0x144004>;
-                  assigned-address = <0xa>;
+                    reg = <0x68 0x392 0x144004>;
+                    assigned-address = <0xa>;
                 };
             };
         };
