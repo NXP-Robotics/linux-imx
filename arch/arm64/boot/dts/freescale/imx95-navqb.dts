@@ -101,6 +101,34 @@
 		startup-delay-us = <50000>;
 		enable-active-high;
 	};
+
+	reg_vana: regulator-2p8v {
+		compatible = "regulator-fixed";
+		regulator-name = "2P8V";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+	};
+
+	reg_vddl: regulator-1p2v {
+		compatible = "regulator-fixed";
+		regulator-name = "1P2V";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	reg_cam: regulator-cam {
+		compatible = "regulator-fixed";
+		regulator-name = "reg_cam";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	cam24m: cam24m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "cam24m";
+	};
 };
 
 &lpi2c3 {
@@ -538,6 +566,70 @@
 			#size-cells = <0>;
 			mode = "smbus";
 			pullup-enable;
+
+			// imx219: sensor@10 {
+			// 	compatible = "sony,imx219";
+			// 	reg = <0x10>;
+			// 	clocks = <&cam24m>;
+			// 	VDIG-supply = <&reg_cam>;
+			// 	VANA-supply = <&reg_vana>;
+			// 	VDDL-supply = <&reg_vddl>;
+			// 	status = "okay";
+
+			// 	ports {
+			// 		#address-cells = <1>;
+			// 		#size-cells = <0>;
+
+			// 		port@0 {
+			// 			reg = <0>;
+			// 		};
+
+			// 		port@1 {
+			// 			reg = <1>;
+			// 		};
+
+			// 		port@2 {
+			// 			reg = <2>;
+			// 			cam_csi0_out: endpoint {
+			// 				remote-endpoint = <&mipi_csi0_ep>;
+			// 				data-lanes = <1 2>;
+			// 				clock-lanes = <0>;
+			// 				link-frequencies = /bits/ 64 <456000000>;
+			// 			};
+			// 		};
+			// 	};
+			// };
+
+			ov5640_csi0: ov5640@3c {
+				compatible = "ovti,ov5640";
+				reg = <0x3c>;
+				clocks = <&scmi_clk IMX95_CLK_24M>;
+				clock-names = "xclk";
+				clock-frequency = <24000000>;
+				status = "okay";
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+					};
+
+					port@1 {
+						reg = <1>;
+					};
+
+					port@2 {
+						reg = <2>;
+						cam_csi0_out: endpoint {
+							remote-endpoint = <&mipi_csi0_ep>;
+							data-lanes = <1 2>;
+							clock-lanes = <0>;
+						};
+					};
+				};
+			};
 		};
 
 		p3h_gpio: target-port@2 {
@@ -572,16 +664,16 @@
 				status = "okay";
 			};
 
-			gt911: gt911@5d {
-				compatible = "goodix,gt911";
-				reg = <0x5d>;
-				AVDD28-supply = <&touch_reg>;
-				touchscreen-size-x = <720>;
-				touchscreen-size-y = <1280>;
-				touchscreen-x-mm = <90>;
-				touchscreen-y-mm = <151>;
-				status = "okay";
-			};
+			// gt911: gt911@5d {
+			// 	compatible = "goodix,gt911";
+			// 	reg = <0x5d>;
+			// 	AVDD28-supply = <&touch_reg>;
+			// 	touchscreen-size-x = <720>;
+			// 	touchscreen-size-y = <1280>;
+			// 	touchscreen-x-mm = <90>;
+			// 	touchscreen-y-mm = <151>;
+			// 	status = "okay";
+			// };
 
 		};
 
@@ -794,6 +886,81 @@
 	channel@0 {
 		reg = <0>;
 		status = "okay";
+	};
+};
+
+&neoisp0 {
+	status = "okay";
+};
+
+&dphy_rx {
+	status = "okay";
+};
+
+&mipi_csi0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			mipi_csi0_ep: endpoint {
+				remote-endpoint = <&cam_csi0_out>;
+				data-lanes = <1 2>;
+				clock-lanes = <0>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+				mipi_csi0_out: endpoint {
+				remote-endpoint = <&formatter_0_in>;
+			};
+		};
+	};
+};
+
+&csi_pixel_formatter_0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			formatter_0_in: endpoint {
+				remote-endpoint = <&mipi_csi0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			formatter_0_out: endpoint {
+				remote-endpoint = <&isi_in_2>;
+			};
+		};
+	};
+};
+
+&isi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@2 {
+			reg = <2>;
+
+			isi_in_2: endpoint {
+				remote-endpoint = <&formatter_0_out>;
+			};
+		};
 	};
 };
 
