@@ -572,7 +572,7 @@
 				reg = <0x10>;
 				clocks = <&cam24m>;
 				orientation = <2>;
-				rotation = <0>;
+				rotation = <180>;
 				status = "okay";
 
 				port {
