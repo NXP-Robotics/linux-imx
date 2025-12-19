@@ -24,7 +24,7 @@ static int scmi_imx_bbm_read_time(struct device *dev, struct rtc_time *tm)
 	u64 val;
 	int ret;
 
-	ret = bbnsm->ops->rtc_time_get(ph, 0, &val);
+	ret = bbnsm->ops->rtc_time_get(ph, 1, &val);
 	if (ret)
 		return ret;
 
@@ -41,7 +41,7 @@ static int scmi_imx_bbm_set_time(struct device *dev, struct rtc_time *tm)
 
 	val = rtc_tm_to_time64(tm);
 
-	return bbnsm->ops->rtc_time_set(ph, 0, val);
+	return bbnsm->ops->rtc_time_set(ph, 1, val);
 }
 
 static int scmi_imx_bbm_alarm_irq_enable(struct device *dev, unsigned int enable)
@@ -51,7 +51,7 @@ static int scmi_imx_bbm_alarm_irq_enable(struct device *dev, unsigned int enable
 
 	/* scmi_imx_bbm_set_alarm enables the irq, just handle disable here */
 	if (!enable)
-		return bbnsm->ops->rtc_alarm_set(ph, 0, false, 0);
+		return bbnsm->ops->rtc_alarm_set(ph, 1, false, 0);
 
 	return 0;
 }
@@ -65,7 +65,7 @@ static int scmi_imx_bbm_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 
 	val = rtc_tm_to_time64(alrm_tm);
 
-	return bbnsm->ops->rtc_alarm_set(ph, 0, true, val);
+	return bbnsm->ops->rtc_alarm_set(ph, 1, true, val);
 }
 
 static const struct rtc_class_ops smci_imx_bbm_rtc_ops = {
