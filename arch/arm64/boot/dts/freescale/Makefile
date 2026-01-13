@@ -795,6 +795,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-navqa-adacorsa.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqa-argos.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-display.dtb
 
 imx95-19x19-verdin-adv7535-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-adv7535.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-adv7535.dtb
