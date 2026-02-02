@@ -723,22 +723,22 @@
 		spi-max-frequency = <1000000>;
 	};
 
-	sja1110_ap: spi@1 { //TODO
+	sja1110_ap: ethernet-switch@1 { // SPI_HAP_SS0_N s (SPI access point)
+		compatible = "nxp,sja1110a";
 		reg = <1>;
 		spi-max-frequency = <4000000>;
 		dsa,member = <0 0>;
 	};
 
 	// The SJA1110 host is not being used
-	// sja1110_host: spi@2 { // TODO
+	// sja1110_host: spi@2 { // SPI_HAP_SS1_N s (SPI host interface)
 	// 	reg = <2>;
 	// 	compatible = "lwn,bk4";
 	// 	spi-max-frequency = <1000000>;
 	// };
 };
 
-// TODO update sja1110 config
-//#include "imx95-navqb-sja1110.dtsi"
+#include "imx95-navqb-sja1110.dtsi"
 
 &flexcan1 {
 	pinctrl-names = "default";
