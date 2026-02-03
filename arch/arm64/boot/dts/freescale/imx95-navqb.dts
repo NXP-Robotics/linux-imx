@@ -711,11 +711,10 @@
 };
 
 &lpspi4 {
-	fsl,spi-num-chipselects = <1>;
-	pinctrl-names = "default", "sleep";
+	fsl,spi-num-chipselects = <2>;
+	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpspi4>;
-	pinctrl-1 = <&pinctrl_lpspi4>;
-	num-cs = <3>;
+	cs-gpios = <&gpio5 14 GPIO_ACTIVE_LOW>, <&gpio5 13 GPIO_ACTIVE_LOW>/*, <&gpio2 16 GPIO_ACTIVE_LOW>*/;
 	status = "okay";
 
 	spidev0: spi@0 { //TODO triradio
@@ -724,19 +723,18 @@
 		spi-max-frequency = <1000000>;
 	};
 
-	sja1110_host: spi@1 { //TODO
+	sja1110_ap: spi@1 { //TODO
 		reg = <1>;
-		compatible = "lwn,bk4";
-		spi-max-frequency = <1000000>;
-	};
-
-	sja1110_ap: ethernet-switch@2 {
-		compatible = "nxp,sja1110a";
-		reg = <2>;
 		spi-max-frequency = <4000000>;
-		spi-cpol;
 		dsa,member = <0 0>;
 	};
+
+	// The SJA1110 host is not being used
+	// sja1110_host: spi@2 { // TODO
+	// 	reg = <2>;
+	// 	compatible = "lwn,bk4";
+	// 	spi-max-frequency = <1000000>;
+	// };
 };
 
 // TODO update sja1110 config
@@ -943,9 +941,9 @@
 
 	pinctrl_lpspi4: lpspi4grp {
 		fsl,pins = <
-			IMX95_PAD_GPIO_IO34__LPSPI4_PCS0		0x3fe
-			IMX95_PAD_GPIO_IO33__LPSPI4_PCS1		0x3fe
-			IMX95_PAD_GPIO_IO16__LPSPI4_PCS2		0x3fe
+			IMX95_PAD_GPIO_IO34__GPIO5_IO_BIT14		0x3fe
+			IMX95_PAD_GPIO_IO33__GPIO5_IO_BIT13		0x3fe
+			IMX95_PAD_GPIO_IO16__GPIO2_IO_BIT16		0x3fe
 			IMX95_PAD_GPIO_IO19__LPSPI4_SIN			0x3fe
 			IMX95_PAD_GPIO_IO36__LPSPI4_SOUT		0x3fe
 			IMX95_PAD_GPIO_IO37__LPSPI4_SCK			0x3fe
