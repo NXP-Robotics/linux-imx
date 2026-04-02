@@ -178,12 +178,6 @@
 			input;
 		};
 
-		eth_rst: eth-rst {
-			gpio-hog;
-			gpios = <3 (GPIO_ACTIVE_LOW)>;
-			output-low;
-		};
-
 		// io_wake_int: io-wake-int {
 		// 	gpio-hog;
 		// 	gpios = <4 (GPIO_ACTIVE_LOW)>;
