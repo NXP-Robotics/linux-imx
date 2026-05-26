@@ -5,6 +5,16 @@
 
 #include "imx95-navqb.dts"
 
+/ {
+	touch_reg: touch_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "touch_reg_1";
+		gpio = <&display_mcu 1 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <50000>;
+		enable-active-high;
+	};
+};
+
 &mipi_dsi {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -36,4 +46,41 @@
 			};
 		};
 	};
+};
+
+&display_pixel_link {
+	status = "okay";
+};
+
+&pixel_interleaver {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	channel@0 {
+		reg = <0>;
+		status = "okay";
+	};
+};
+
+&p3h_i3c2c {
+	display_mcu: display_mcu@45	{
+		compatible = "raspberrypi,v2-touchscreen-panel-regulator";
+		reg = <0x45>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		status = "okay";
+	};
+
+	// gt911: gt911@5d {
+	// 	compatible = "goodix,gt911";
+	// 	reg = <0x5d>;
+	// 	AVDD28-supply = <&touch_reg>;
+	// 	touchscreen-size-x = <720>;
+	// 	touchscreen-size-y = <1280>;
+	// 	touchscreen-x-mm = <90>;
+	// 	touchscreen-y-mm = <151>;
+	// 	status = "okay";
+	// };
+
 };
