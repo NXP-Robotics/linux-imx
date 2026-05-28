@@ -1095,6 +1095,15 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin.dtb
 DTC_FLAGS_imx95-19x19-verdin-rpmsg := -@
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-rpmsg.dtb
 
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqa.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqa-adacorsa.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqa-argos.dtb
+
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-display.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-sja1110-bin.dtb
+
+
 imx95-19x19-verdin-adv7535-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-adv7535.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-adv7535.dtb
 
