@@ -10,43 +10,64 @@
 };
 
 &lpspi3 {
-	fsl,spi-num-chipselects = <1>;
+	fsl,spi-num-chipselects = <2>;
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpspi3>;
 	pinctrl-1 = <&pinctrl_lpspi3>;
+	cs-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>, <&gpio2 20 GPIO_ACTIVE_LOW>;
 	dmas = <>;
 	dma-names = "";
 
 	status = "okay";
 
-	spidev0@0 {
+	spidev0_0@0 {
 		compatible = "spidev";
 		reg = <0>; // Chip select 0
+		spi-max-frequency = <20000000>; // 20 MHz
+	};
+
+	spidev0_1@1 {
+		compatible = "spidev";
+		reg = <1>; // Chip select 1
 		spi-max-frequency = <20000000>; // 20 MHz
 	};
 };
 
 &lpspi6 {
-	fsl,spi-num-chipselects = <1>;
+	fsl,spi-num-chipselects = <2>;
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpspi6>;
 	pinctrl-1 = <&pinctrl_lpspi6>;
+	cs-gpios = <&gpio2 0 GPIO_ACTIVE_LOW>, <&gpio2 21 GPIO_ACTIVE_LOW>;
 	dmas = <>;
 	dma-names = "";
 
 	status = "okay";
 
-	spidev@0 {
+	spidev1_0@0 {
 		compatible = "spidev";
 		reg = <0>; // Chip select 0
 		spi-max-frequency = <20000000>; // 20 MHz
 	};
+
+	spidev1_1@1 {
+		compatible = "spidev";
+		reg = <1>; // Chip select 1
+		spi-max-frequency = <20000000>; // 20 MHz
+	};
 };
+
+/*
+ * The second PCS's of both SPI busses are set to GPIO by default.
+ * Linux has no access rights to these PINS so it will not touch them.
+ * Make sure no M7 software is running because it can change the mux setting.
+ * (IMX95_PAD_GPIO_IO21__GPIO2_IO_BIT20 and IMX95_PAD_GPIO_IO20__GPIO2_IO_BIT21)
+ */
 
 &scmi_iomuxc {
         pinctrl_lpspi6: lpspi6grp {
 		fsl,pins = <
-			IMX95_PAD_GPIO_IO00__LPSPI6_PCS0	0x31e
+			IMX95_PAD_GPIO_IO00__GPIO2_IO_BIT0	0x31e
 			IMX95_PAD_GPIO_IO01__LPSPI6_SIN 	0x31e
 			IMX95_PAD_GPIO_IO02__LPSPI6_SOUT        0x31e
 			IMX95_PAD_GPIO_IO03__LPSPI6_SCK 	0x31e
@@ -55,7 +76,7 @@
 
 	pinctrl_lpspi3: lpspi3grp {
 		fsl,pins = <
-			IMX95_PAD_GPIO_IO08__LPSPI3_PCS0	0x31e
+			IMX95_PAD_GPIO_IO08__GPIO2_IO_BIT8	0x31e
 			IMX95_PAD_GPIO_IO09__LPSPI3_SIN 	0x31e
 			IMX95_PAD_GPIO_IO10__LPSPI3_SOUT        0x31e
 			IMX95_PAD_GPIO_IO11__LPSPI3_SCK 	0x31e
