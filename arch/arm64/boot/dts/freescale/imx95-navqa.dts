@@ -1,0 +1,781 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2025 NXP
+ */
+
+/dts-v1/;
+
+#include "imx95-navq.dtsi"
+
+/ {
+	model = "NXP X-MR-NAVQ95A";
+	compatible = "fsl,imx95-navqa", "fsl,imx95";
+
+	reg_can1_stby: regulator-can1-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "can1-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp22 2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&reg_can1_en>;
+	};
+
+	reg_can1_en: regulator-can1-en {
+		compatible = "regulator-fixed";
+		regulator-name = "can1-en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp22 1 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	reg_can2_stby: regulator-can2-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "can2-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp22 5 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&reg_can2_en>;
+	};
+
+	reg_can2_en: regulator-can2-en {
+		compatible = "regulator-fixed";
+		regulator-name = "can2-en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp22 4 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	reg_can3_stby: regulator-can3-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "can3-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp22 8 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&reg_can3_en>;
+	};
+
+	reg_can3_en: regulator-can3-en {
+		compatible = "regulator-fixed";
+		regulator-name = "can3-en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp22 7 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	reg_can5_stby: regulator-can5-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "can5-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp22 11 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&reg_can5_en>;
+	};
+
+	reg_can5_en: regulator-can5-en {
+		compatible = "regulator-fixed";
+		regulator-name = "can5-en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp22 10 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	usdhc3_pwrseq: usdhc3-pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&i2c2_ioexp21 22 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+		post-power-on-delay-ms = <200>;
+	};
+
+	reg_pcie0: regulator-pcie0 {
+		compatible = "regulator-fixed";
+		regulator-name = "SLOT_PWREN_SDD";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp22 13 GPIO_ACTIVE_LOW>;
+		enable-active-low;
+		regulator-always-on;
+	};
+
+	reg_pcie1: regulator-pcie1 {
+		compatible = "regulator-fixed";
+		regulator-name = "SLOT_PWREN_5G";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c3_ioexp22 14 GPIO_ACTIVE_LOW>;
+		enable-active-low;
+		regulator-always-on;
+	};
+
+	reg_eth_clk_en: regulator-eth-clk-en {
+		compatible = "regulator-fixed";
+		regulator-name = "eth-clk-en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c2_ioexp21 17 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&lpi2c2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <400000>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpi2c2>;
+	pinctrl-1 = <&pinctrl_lpi2c2>;
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+	status = "okay";
+
+	i2c2_ioexp21: i2c2-gpio@21 {
+		compatible = "nxp,pcal6524";
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c2_ioexp21>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <26 IRQ_TYPE_EDGE_FALLING>;
+		status = "okay";
+
+		sja1110_sw_int_n: sja1110-sw-int-n {
+			gpio-hog;
+			gpios = <3 (GPIO_ACTIVE_LOW | GPIO_LINE_OPEN_DRAIN | GPIO_PULL_UP)>;
+			input;
+		};
+
+		usb1_ptn_int_b: usb1-ptn-int-b {
+			gpio-hog;
+			gpios = <7 (GPIO_ACTIVE_LOW | GPIO_LINE_OPEN_DRAIN | GPIO_PULL_UP)>;
+			input;
+		};
+
+		usb1_ptn_flt_b: usb1-ptn-flt-b {
+			gpio-hog;
+			gpios = <8 (GPIO_ACTIVE_LOW | GPIO_LINE_OPEN_DRAIN | GPIO_PULL_UP)>;
+			input;
+		};
+
+		int_sw_usb1_b: int-sw-usb1-b {
+			gpio-hog;
+			gpios = <9 (GPIO_ACTIVE_LOW | GPIO_LINE_OPEN_DRAIN)>;
+			input;
+		};
+
+		usb2_ptn_int_b: usb2-ptn-int-b {
+			gpio-hog;
+			gpios = <10 (GPIO_ACTIVE_LOW | GPIO_LINE_OPEN_DRAIN | GPIO_PULL_UP)>;
+			input;
+		};
+
+		usb2_ptn_flt_b: usb2-ptn-flt-b {
+			gpio-hog;
+			gpios = <11 (GPIO_ACTIVE_LOW | GPIO_LINE_OPEN_DRAIN | GPIO_PULL_UP)>;
+			input;
+		};
+
+		int_sw_usb2_b: int-sw-usb2-b {
+			gpio-hog;
+			gpios = <12 (GPIO_ACTIVE_LOW | GPIO_LINE_OPEN_DRAIN)>;
+			input;
+		};
+
+		si5332_rst: si5332-rst {
+			gpio-hog;
+			gpios = <18 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
+
+		sja1110_rst_n: sja1110-rst-n {
+			gpio-hog;
+			gpios = <20 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+
+		sja1110_rst_core_n: sja1110-rst-core-n {
+			gpio-hog;
+			gpios = <21 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+
+		se_enable: se-enable {
+			gpio-hog;
+			gpios = <23 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+	};
+
+	ptn5110_usb2: tcpc_usb2@52 {
+		compatible = "nxp,ptn5110";
+		pinctrl-names = "default";
+		reg = <0x52>;
+		interrupt-parent = <&i2c2_ioexp21>;
+		interrupts = <10 IRQ_TYPE_EDGE_FALLING>; // 10 = USB2_PTN_INT_B
+
+		typec_con2: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			power-role = "source";
+			data-role = "dual";
+			try-power-role = "source";
+			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+			op-sink-microwatt = <0>;
+			self-powered;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@1 {
+					reg = <1>;
+					typec_con_ss2: endpoint {
+						remote-endpoint = <&usb2_data_ss>;
+					};
+				};
+			};
+		};
+	};
+
+	ptn5110_usb3: tcpc_usb3@51 {
+		compatible = "nxp,ptn5110";
+		pinctrl-names = "default";
+		reg = <0x51>;
+		interrupt-parent = <&i2c2_ioexp21>;
+		interrupts = <7 IRQ_TYPE_EDGE_FALLING>; // 7 = USB1_PTN_INT_B
+
+		port {
+			typec_dr_sw3: endpoint {
+				remote-endpoint = <&usb3_drd_sw>;
+			};
+		};
+
+		typec_con3: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			power-role = "source";
+			data-role = "dual";
+			try-power-role = "source";
+			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+			op-sink-microwatt = <0>;
+			self-powered;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@1 {
+					reg = <1>;
+					typec_con_ss3: endpoint {
+						remote-endpoint = <&usb3_data_ss>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&lpi2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <400000>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpi2c3>;
+	pinctrl-1 = <&pinctrl_lpi2c3>;
+	status = "okay";
+
+	i2c3_ioexp22: i2c3-gpio@22 {
+		compatible = "nxp,pcal6524";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+/*
+interrupt connected to pcal6416 managed by m33
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c3_ioexp22>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
+*/
+		status = "okay";
+
+		can_power_en: can-power-en {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+
+		/* enable can5; used by m7 */
+
+		can5_en: can5-en {
+			gpio-hog;
+			gpios = <10 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+
+		can5_stby_b: can5-stby-b {
+			gpio-hog;
+			gpios = <11 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+
+		m2_pwren_ssd_n: m2-pwren-ssd-n {
+			gpio-hog;
+			gpios = <13 GPIO_ACTIVE_LOW>;
+			output-high;
+		};
+
+		m2_pwren_5g_n: m2-pwren-5g-n {
+			gpio-hog;
+			gpios = <14 GPIO_ACTIVE_LOW>;
+			output-high;
+		};
+
+		pcie1_full_card_power_off_n: full-card-power-off-n {
+			gpio-hog;
+			gpios = <15 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+
+		usb1_wat_flg_b: usb1-wat-flg-b {
+			gpio-hog;
+			gpios = <16 (GPIO_ACTIVE_LOW | GPIO_LINE_OPEN_DRAIN | GPIO_PULL_UP)>;
+			input;
+		};
+
+		usb2_wat_flg_b: usb2-wat-flg-b {
+			gpio-hog;
+			gpios = <17 (GPIO_ACTIVE_LOW | GPIO_LINE_OPEN_DRAIN | GPIO_PULL_UP)>;
+			input;
+		};
+
+		enable_1v8_buffer_b: enable-1v8-buffer-b {
+			gpio-hog;
+			gpios = <23 GPIO_ACTIVE_LOW>;
+			output-high;
+		};
+	};
+
+	i2c3_ioexp23: i2c3-gpio@23 {
+		compatible = "nxp,pcal6524";
+		reg = <0x23>;
+		gpio-controller;
+		#gpio-cells = <2>;
+/*
+interrupt connected to pcal6416 managed by m33
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c3_ioexp23>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
+*/
+		status = "okay";
+
+		// pcie1_w_disable_n: w-disable-n {
+		// 	gpio-hog;
+		// 	gpios = <9 GPIO_ACTIVE_LOW>;
+		// 	output-low;
+		// };
+
+		// pcie1_pewake_n: pewake-n {
+		// 	gpio-hog;
+		// 	gpios = <4 GPIO_ACTIVE_LOW>;
+		// 	output-low;
+		// };
+
+		// pcie1_reset_n: reset-n {
+		// 	gpio-hog;
+		// 	gpios = <23 GPIO_ACTIVE_LOW>;
+		// 	output-low;
+		// };
+	};
+
+	ov5640_csi0: ov5640@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		clocks = <&scmi_clk IMX95_CLK_24M>;
+		clock-names = "xclk";
+		clock-frequency = <24000000>;
+		status = "okay";
+		powerdown-gpios = <&i2c3_ioexp22 19 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&i2c3_ioexp22 20 GPIO_ACTIVE_LOW>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+			};
+
+			port@1 {
+				reg = <1>;
+			};
+
+			port@2 {
+				reg = <2>;
+				ov5640_csi0_out: endpoint {
+					remote-endpoint = <&mipi_csi0_ep>;
+					data-lanes = <1 2>;
+					clock-lanes = <0>;
+				};
+			};
+		};
+	};
+};
+
+&lpi2c4 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <400000>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpi2c4>;
+	pinctrl-1 = <&pinctrl_lpi2c4>;
+	status = "okay";
+
+	ov5640_csi1: ov5640@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		clocks = <&scmi_clk IMX95_CLK_24M>;
+		clock-names = "xclk";
+		clock-frequency = <24000000>;
+		status = "okay";
+		powerdown-gpios = <&i2c3_ioexp22 21 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&i2c3_ioexp22 22 GPIO_ACTIVE_LOW>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+			};
+
+			port@1 {
+				reg = <1>;
+			};
+
+			port@2 {
+				reg = <2>;
+				ov5640_csi1_out: endpoint {
+					remote-endpoint = <&mipi_csi1_ep>;
+					data-lanes = <1 2>;
+					clock-lanes = <0>;
+				};
+			};
+		};
+	};
+};
+
+&lpspi7 {
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_lpspi7>;
+	pinctrl-1 = <&pinctrl_lpspi7>;
+	status = "disabled";
+
+	spidev0: spi@0 {
+		reg = <0>;
+		compatible = "lwn,bk4";
+		spi-max-frequency = <1000000>;
+	};
+};
+
+&lpuart5 {
+	/* J20 */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart5>;
+	uart-has-rtscts;
+	status = "okay";
+};
+
+&lpuart6 {
+	/* BT */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart6>;
+	uart-has-rtscts;
+	status = "okay";
+
+	bluetooth {
+		compatible = "nxp,88w8987-bt";
+	};
+};
+
+/* pin conflict with PDM */
+&flexcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan1>;
+	xceiver-supply = <&reg_can1_stby>;
+	status = "okay";
+};
+
+&flexcan2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan2>;
+	xceiver-supply = <&reg_can2_stby>;
+	status = "okay";
+};
+
+&flexcan3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan3>;
+	xceiver-supply = <&reg_can3_stby>;
+	status = "okay";
+};
+
+&flexcan5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan5>;
+	xceiver-supply = <&reg_can5_stby>;
+	status = "disabled";
+};
+
+&netc_emdio {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_emdio>;
+	status = "okay";
+
+	ethphy0: ethernet-phy@1 {
+		reg = <1>;
+		eee-broken-1000t;
+		reset-gpios = <&i2c2_ioexp21 16 GPIO_ACTIVE_LOW>;
+		reset-assert-us = <10000>;
+		reset-deassert-us = <80000>;
+		realtek,clkout-disable;
+	};
+};
+
+&enetc_port0 {
+	//serdes-supply = <&reg_serdes_en>; // This will make the end0 interface sometimes not getting an ip4 address. Timing?
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_enetc0>;
+	phy-handle = <&ethphy0>;
+	phy-mode = "rgmii-id";
+	status = "okay";
+};
+
+&enetc_port2 {
+	serdes-supply = <&reg_eth_clk_en>;
+	status = "okay";
+};
+
+&netc_timer {
+	status = "okay";
+};
+
+&dphy_rx {
+	status = "okay";
+};
+
+&combo_rx {
+	status = "okay";
+};
+
+&mipi_csi0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			mipi_csi0_ep: endpoint {
+				remote-endpoint = <&ov5640_csi0_out>;
+				data-lanes = <1 2>;
+				clock-lanes = <0>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+				mipi_csi0_out: endpoint {
+				remote-endpoint = <&formatter_0_in>;
+			};
+		};
+	};
+};
+
+&mipi_csi1 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			mipi_csi1_ep: endpoint {
+				remote-endpoint = <&ov5640_csi1_out>;
+				data-lanes = <1 2>;
+				clock-lanes = <0>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+				mipi_csi1_out: endpoint {
+				remote-endpoint = <&formatter_1_in>;
+			};
+		};
+	};
+};
+
+&csi_pixel_formatter_0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			formatter_0_in: endpoint {
+				remote-endpoint = <&mipi_csi0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			formatter_0_out: endpoint {
+				remote-endpoint = <&isi_in_2>;
+			};
+		};
+	};
+};
+
+&csi_pixel_formatter_1 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			formatter_1_in: endpoint {
+				remote-endpoint = <&mipi_csi1_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			formatter_1_out: endpoint {
+				remote-endpoint = <&isi_in_3>;
+			};
+		};
+	};
+};
+
+&isi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@2 {
+			reg = <2>;
+
+			isi_in_2: endpoint {
+				remote-endpoint = <&formatter_0_out>;
+			};
+		};
+
+		port@3 {
+			reg = <3>;
+
+			isi_in_3: endpoint {
+				remote-endpoint = <&formatter_1_out>;
+			};
+		};
+	};
+};
+
+&pcie0 {
+	pinctrl-0 = <&pinctrl_pcie0>;
+	pinctrl-names = "default";
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	reset-gpio = <&i2c3_ioexp23 0 GPIO_ACTIVE_LOW>;
+	vpcie-supply = <&reg_pcie0>;
+	status = "okay";
+};
+
+&pcie1 {
+	pinctrl-0 = <&pinctrl_pcie1>;
+	pinctrl-names = "default";
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	reset-gpio = <&i2c3_ioexp23 3 GPIO_ACTIVE_LOW>;
+	vpcie-supply = <&reg_pcie1>;
+	status = "okay";
+};
+
+&pcie1_ep {
+	pinctrl-0 = <&pinctrl_pcie1>;
+	pinctrl-names = "default";
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	vpcie-supply = <&reg_pcie1>;
+	status = "okay";
+};
+
+&scmi_iomuxc {
+	pinctrl_uart5: uart5grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO00__LPUART5_TX			0x31e
+			IMX95_PAD_GPIO_IO01__LPUART5_RX			0x31e
+			IMX95_PAD_GPIO_IO02__LPUART5_CTS_B		0x31e
+			IMX95_PAD_GPIO_IO03__LPUART5_RTS_B		0x31e
+		>;
+	};
+
+	pinctrl_uart6: uart6grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO04__LPUART6_TX			0x31e
+			IMX95_PAD_GPIO_IO33__LPUART6_RX			0x31e
+			IMX95_PAD_GPIO_IO07__LPUART6_RTS_B		0x31e
+			IMX95_PAD_GPIO_IO34__LPUART6_CTS_B		0x31e
+		>;
+	};
+
+	pinctrl_lpi2c2: lpi2c2grp {
+		fsl,pins = <
+			IMX95_PAD_I2C2_SCL__AONMIX_TOP_LPI2C2_SCL	0x40000b9e
+			IMX95_PAD_I2C2_SDA__AONMIX_TOP_LPI2C2_SDA	0x40000b9e
+		>;
+	};
+
+	pinctrl_lpspi7: lpspi7grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO04__LPSPI7_PCS0	0x3fe
+			IMX95_PAD_GPIO_IO05__LPSPI7_SIN		0x3fe
+			IMX95_PAD_GPIO_IO06__LPSPI7_SOUT	0x3fe
+			IMX95_PAD_GPIO_IO07__LPSPI7_SCK		0x3fe
+		>;
+	};
+
+	pinctrl_i2c2_ioexp21: i2c2_ioexp21grp {
+		fsl,pins = <
+			IMX95_PAD_CCM_CLKO1__GPIO3_IO_BIT26			0x31e
+		>;
+	};
+
+	pinctrl_flexcan5: flexcan5grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO22__CAN5_TX			0x39e
+			IMX95_PAD_GPIO_IO23__CAN5_RX			0x39e
+		>;
+	};
+};

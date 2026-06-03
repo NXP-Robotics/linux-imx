@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2026 NXP
+ */
+
+#include "imx95-navqb.dts"
+
+/ {
+	sfp0: sfp-0 {
+		compatible = "sff,sfp";
+		i2c-bus = <&p3h_i3c2a>;
+		
+		/* GPIOs from IO expander */
+		mod-def0-gpios = <&sfp_ioexp 6 GPIO_ACTIVE_LOW>;  /* P6 MOD_ABS */
+		los-gpios      = <&sfp_ioexp 5 GPIO_ACTIVE_HIGH>; /* P5 LOS */
+		tx-fault-gpios = <&sfp_ioexp 7 GPIO_ACTIVE_HIGH>; /* P7 TX_FAULT */
+		tx-disable-gpios = <&sfp_ioexp 0 GPIO_ACTIVE_HIGH>; /* P0 */
+
+		/* optional */
+		rate-select0-gpios = <&sfp_ioexp 1 GPIO_ACTIVE_HIGH>; /* P1 */
+		rate-select1-gpios = <&sfp_ioexp 2 GPIO_ACTIVE_HIGH>; /* P2 */
+
+		maximum-power-milliwatt = <3000>;
+	};
+};
+
+&p3h_i3c2a {
+	sfp_ioexp: sfp-ioexp@21 {
+		compatible = "ti,tca6408";
+		reg = <0x21>;
+
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		sfp_enable: enable {
+			gpio-hog;
+			gpios = <3 GPIO_ACTIVE_HIGH>; /* P3 */
+			output-high; /* enable SFP power */
+			line-name = "sfp0_enable";
+		};
+	};
+};
+
+&lpspi4 {
+	/delete-node/ sja1110_ap;
+};
+
+&enetc_port2 {
+	phy-mode = "10gbase-r";
+	status = "okay";
+	managed = "in-band-status";
+	sfp = <&sfp0>;
+
+	/delete-node/ fixed-link;
+};
