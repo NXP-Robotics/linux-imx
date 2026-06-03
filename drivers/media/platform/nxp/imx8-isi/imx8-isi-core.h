@@ -307,6 +307,12 @@ struct mxc_isi_dev {
 	struct v4l2_async_notifier	notifier;
 
 	struct dentry			*debugfs_root;
+
+	struct workqueue_struct *work_queue;
+	struct delayed_work     timeout_work;
+	/* Async bring-up tracking: waiting count last tick, no-progress ticks. */
+	unsigned int            async_waiting_prev;
+	unsigned int            async_stall;
 };
 
 extern const struct mxc_gasket_ops mxc_imx8_gasket_ops;

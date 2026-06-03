@@ -752,8 +752,21 @@ static int csi_formatter_notify_bound(struct v4l2_async_notifier *notifier,
 	return 0;
 }
 
+static void csi_formatter_notify_unbind(struct v4l2_async_notifier *notifier,
+		       struct v4l2_subdev *sd,
+		       struct v4l2_async_connection *asc)
+{
+	struct csi_formatter *formatter = notifier_to_formatter(notifier);
+	dev_err(formatter->dev, "Unbind subdev: %s pad\n", sd->name);
+
+	formatter->csi_sd = NULL;
+
+	media_entity_remove_links(&sd->entity);
+}
+
 static const struct v4l2_async_notifier_operations formatter_notify_ops = {
 	.bound = csi_formatter_notify_bound,
+	.unbind = csi_formatter_notify_unbind,
 };
 
 static int csi_formatter_async_register(struct csi_formatter *formatter)
