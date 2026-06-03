@@ -136,6 +136,168 @@ void rpmsg_destroy_ept(struct rpmsg_endpoint *ept)
 EXPORT_SYMBOL(rpmsg_destroy_ept);
 
 /**
+ * rpmsg_get_tx_buffer_size() - get the endpoint's tx buffer size
+ * @ept:       the rpmsg endpoint
+ *
+ * Returns tx buffer size on success and an appropriate error value on failure.
+ */
+int rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept)
+{
+       if (WARN_ON(!ept))
+               return -EINVAL;
+       if (!ept->ops->get_tx_buffer_size)
+               return -ENXIO;
+
+       return ept->ops->get_tx_buffer_size(ept);
+}
+EXPORT_SYMBOL(rpmsg_get_tx_buffer_size);
+
+/**
+ * rpmsg_get_rx_buffer_size() - get the endpoint's rx buffer size
+ * @ept:       the rpmsg endpoint
+ *
+ * Returns rx buffer size on success and an appropriate error value on failure.
+ */
+int rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept)
+{
+       if (WARN_ON(!ept))
+               return -EINVAL;
+       if (!ept->ops->get_rx_buffer_size)
+               return -ENXIO;
+
+       return ept->ops->get_rx_buffer_size(ept);
+}
+EXPORT_SYMBOL(rpmsg_get_rx_buffer_size);
+
+/**
+ * rpmsg_get_tx_payload_buffer() - get the payload buffer from the pool
+ * @ept: the rpmsg endpoint
+ * @len: length of payload
+ * @wait: wait if the pool is empty
+ *
+ * Returns the buffer on success and an appropriate error value on failure.
+ */
+void *rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
+                                 unsigned int *len, bool wait)
+{
+       if (WARN_ON(!ept))
+               return ERR_PTR(-EINVAL);
+       if (!ept->ops->get_tx_payload_buffer)
+               return ERR_PTR(-ENXIO);
+
+       return ept->ops->get_tx_payload_buffer(ept, len, wait);
+}
+EXPORT_SYMBOL(rpmsg_get_tx_payload_buffer);
+
+/**
+ * rpmsg_release_tx_buffer() - release the tx buffer
+ * @ept: the rpmsg endpoint
+ * @txbuf: pointer to the buffer returned by rpmsg_get_tx_payload_buffer()
+ *
+ * Returns 0 on success and an appropriate error value on failure.
+ */
+int rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *txbuf)
+{
+       if (WARN_ON(!ept))
+               return -EINVAL;
+       if (!ept->ops->release_tx_buffer)
+               return -ENXIO;
+
+       return ept->ops->release_tx_buffer(ept, txbuf);
+}
+EXPORT_SYMBOL(rpmsg_release_tx_buffer);
+
+/**
+ * rpmsg_send_nocopy() - send a message across to the remote processor
+ * @ept: the rpmsg endpoint
+ * @data: payload of message
+ * @len: length of payload
+ *
+ * This function sends @data of length @len on the @ept endpoint.
+ * The message will be sent to the remote processor which the @ept
+ * endpoint belongs to, using @ept's address and its associated rpmsg
+ * device destination addresses.
+ * In case there are no TX buffers available, the function will block until
+ * one becomes available, or a timeout of 15 seconds elapses. When the latter
+ * happens, -ERESTARTSYS is returned.
+ *
+ * Can only be called from process context (for now).
+ *
+ * Returns 0 on success and an appropriate error value on failure.
+ */
+int rpmsg_send_nocopy(struct rpmsg_endpoint *ept, void *data, int len)
+{
+       if (WARN_ON(!ept))
+               return -EINVAL;
+       if (!ept->ops->send_nocopy)
+               return -ENXIO;
+
+       return ept->ops->send_nocopy(ept, data, len);
+}
+EXPORT_SYMBOL(rpmsg_send_nocopy);
+
+/**
+ * rpmsg_sendto_nocopy() - send a message across to the remote processor, specify dst
+ * @ept: the rpmsg endpoint
+ * @data: payload of message
+ * @len: length of payload
+ * @dst: destination address
+ *
+ * This function sends @data of length @len to the remote @dst address.
+ * The message will be sent to the remote processor which the @ept
+ * endpoint belongs to, using @ept's address as source.
+ * In case there are no TX buffers available, the function will block until
+ * one becomes available, or a timeout of 15 seconds elapses. When the latter
+ * happens, -ERESTARTSYS is returned.
+ *
+ * Can only be called from process context (for now).
+ *
+ * Returns 0 on success and an appropriate error value on failure.
+ */
+int rpmsg_sendto_nocopy(struct rpmsg_endpoint *ept, void *data, int len, u32 dst)
+{
+       if (WARN_ON(!ept))
+               return -EINVAL;
+       if (!ept->ops->sendto_nocopy)
+               return -ENXIO;
+
+       return ept->ops->sendto_nocopy(ept, data, len, dst);
+}
+EXPORT_SYMBOL(rpmsg_sendto_nocopy);
+
+/**
+ * rpmsg_send_offchannel_nocopy() - send a message using explicit src/dst addresses
+ * @ept: the rpmsg endpoint
+ * @src: source address
+ * @dst: destination address
+ * @data: payload of message
+ * @len: length of payload
+ *
+ * This function sends @data of length @len to the remote @dst address,
+ * and uses @src as the source address.
+ * The message will be sent to the remote processor which the @ept
+ * endpoint belongs to.
+ * In case there are no TX buffers available, the function will block until
+ * one becomes available, or a timeout of 15 seconds elapses. When the latter
+ * happens, -ERESTARTSYS is returned.
+ *
+ * Can only be called from process context (for now).
+ *
+ * Returns 0 on success and an appropriate error value on failure.
+ */
+int rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, u32 src, u32 dst,
+                                void *data, int len)
+{
+       if (WARN_ON(!ept))
+               return -EINVAL;
+       if (!ept->ops->send_offchannel_nocopy)
+               return -ENXIO;
+
+       return ept->ops->send_offchannel_nocopy(ept, src, dst, data, len);
+}
+EXPORT_SYMBOL(rpmsg_send_offchannel_nocopy);
+
+/**
  * rpmsg_send() - send a message across to the remote processor
  * @ept: the rpmsg endpoint
  * @data: payload of message
@@ -439,6 +601,9 @@ static int rpmsg_dev_match(struct device *dev, const struct device_driver *drv)
 
 	if (rpdev->driver_override)
 		return !strcmp(rpdev->driver_override, drv->name);
+
+	if (rpdrv->match)
+		return rpdrv->match(rpdev, rpdrv);
 
 	if (ids)
 		for (i = 0; ids[i].name[0]; i++)

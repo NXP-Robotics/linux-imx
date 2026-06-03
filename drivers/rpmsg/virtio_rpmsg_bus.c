@@ -138,9 +138,24 @@ struct virtio_rpmsg_channel {
 #define RPMSG_RESERVED_ADDRESSES	(1024)
 
 static void virtio_rpmsg_destroy_ept(struct rpmsg_endpoint *ept);
+static int virtio_rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept);
+static int virtio_rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept);
+static void *virtio_rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
+                                               unsigned int *len, bool wait);
+static int virtio_rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *txbuf);
+static int virtio_rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, u32 src,
+                                              u32 dst, void *data, int len);
+static int virtio_rpmsg_send_nocopy(struct rpmsg_endpoint *ept, void *data, int len);
+static int virtio_rpmsg_sendto_nocopy(struct rpmsg_endpoint *ept, void *data, int len,
+                                     u32 dst);
+static int virtio_rpmsg_send_offchannel(struct rpmsg_endpoint *ept, u32 src,
+                                       u32 dst, void *data, int len);
+
 static int virtio_rpmsg_send(struct rpmsg_endpoint *ept, void *data, int len);
 static int virtio_rpmsg_sendto(struct rpmsg_endpoint *ept, void *data, int len,
 			       u32 dst);
+static int virtio_rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src,
+                                          u32 dst, void *data, int len);
 static int virtio_rpmsg_trysend(struct rpmsg_endpoint *ept, void *data, int len);
 static int virtio_rpmsg_trysendto(struct rpmsg_endpoint *ept, void *data,
 				  int len, u32 dst);
@@ -150,6 +165,13 @@ static struct rpmsg_device *__rpmsg_create_channel(struct virtproc_info *vrp,
 
 static const struct rpmsg_endpoint_ops virtio_endpoint_ops = {
 	.destroy_ept = virtio_rpmsg_destroy_ept,
+	.get_tx_buffer_size = virtio_rpmsg_get_tx_buffer_size,
+    .get_rx_buffer_size = virtio_rpmsg_get_rx_buffer_size,
+    .get_tx_payload_buffer = virtio_rpmsg_get_tx_payload_buffer,
+    .release_tx_buffer = virtio_rpmsg_release_tx_buffer,
+    .send_nocopy = virtio_rpmsg_send_nocopy,
+    .sendto_nocopy = virtio_rpmsg_sendto_nocopy,
+    .send_offchannel_nocopy = virtio_rpmsg_send_offchannel_nocopy,
 	.send = virtio_rpmsg_send,
 	.sendto = virtio_rpmsg_sendto,
 	.trysend = virtio_rpmsg_trysend,
@@ -431,9 +453,8 @@ static struct rpmsg_device *__rpmsg_create_channel(struct virtproc_info *vrp,
 }
 
 /* super simple buffer "allocator" that is just enough for now */
-static void *get_a_tx_buf(struct virtproc_info *vrp)
+static void *get_a_tx_buf(struct virtproc_info *vrp, unsigned int *len)
 {
-	unsigned int len;
 	void *ret;
 
 	/* support multiple concurrent senders */
@@ -447,8 +468,9 @@ static void *get_a_tx_buf(struct virtproc_info *vrp)
 		ret = vrp->sbufs + vrp->buf_size * vrp->last_sbuf++;
 	/* or recycle a used one */
 	else
-		ret = virtqueue_get_buf(vrp->svq, &len);
+		ret = virtqueue_get_buf(vrp->svq, len);
 
+	*len = vrp->buf_size;
 	mutex_unlock(&vrp->tx_lock);
 
 	return ret;
@@ -510,75 +532,35 @@ static void rpmsg_downref_sleepers(struct virtproc_info *vrp)
 	mutex_unlock(&vrp->tx_lock);
 }
 
-/**
- * rpmsg_send_offchannel_raw() - send a message across to the remote processor
- * @rpdev: the rpmsg channel
- * @src: source address
- * @dst: destination address
- * @data: payload of message
- * @len: length of payload
- * @wait: indicates whether caller should block in case no TX buffers available
- *
- * This function is the base implementation for all of the rpmsg sending API.
- *
- * It will send @data of length @len to @dst, and say it's from @src. The
- * message will be sent to the remote processor which the @rpdev channel
- * belongs to.
- *
- * The message is sent using one of the TX buffers that are available for
- * communication with this remote processor.
- *
- * If @wait is true, the caller will be blocked until either a TX buffer is
- * available, or 15 seconds elapses (we don't want callers to
- * sleep indefinitely due to misbehaving remote processors), and in that
- * case -ERESTARTSYS is returned. The number '15' itself was picked
- * arbitrarily; there's little point in asking drivers to provide a timeout
- * value themselves.
- *
- * Otherwise, if @wait is false, and there are no TX buffers available,
- * the function will immediately fail, and -ENOMEM will be returned.
- *
- * Normally drivers shouldn't use this function directly; instead, drivers
- * should use the appropriate rpmsg_{try}send{to} API
- * (see include/linux/rpmsg.h).
- *
- * Return: 0 on success and an appropriate error value on failure.
- */
-static int rpmsg_send_offchannel_raw(struct rpmsg_device *rpdev,
-				     u32 src, u32 dst,
-				     void *data, int len, bool wait)
+static int virtio_rpmsg_get_tx_buffer_size(struct rpmsg_endpoint *ept)
 {
+       struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(ept->rpdev);
+
+       return vch->vrp->buf_size - sizeof(struct rpmsg_hdr);
+}
+
+static int virtio_rpmsg_get_rx_buffer_size(struct rpmsg_endpoint *ept)
+{
+       struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(ept->rpdev);
+
+       return vch->vrp->buf_size - sizeof(struct rpmsg_hdr);
+}
+
+
+static void *virtio_rpmsg_get_tx_payload_buffer(struct rpmsg_endpoint *ept,
+                                               unsigned int *len, bool wait)
+{
+	struct rpmsg_device *rpdev = ept->rpdev;
 	struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(rpdev);
 	struct virtproc_info *vrp = vch->vrp;
 	struct device *dev = &rpdev->dev;
-	struct scatterlist sg;
 	struct rpmsg_hdr *msg;
 	int err;
 
-	/* bcasting isn't allowed */
-	if (src == RPMSG_ADDR_ANY || dst == RPMSG_ADDR_ANY) {
-		dev_err(dev, "invalid addr (src 0x%x, dst 0x%x)\n", src, dst);
-		return -EINVAL;
-	}
-
-	/*
-	 * We currently use fixed-sized buffers, and therefore the payload
-	 * length is limited.
-	 *
-	 * One of the possible improvements here is either to support
-	 * user-provided buffers (and then we can also support zero-copy
-	 * messaging), or to improve the buffer allocator, to support
-	 * variable-length buffer sizes.
-	 */
-	if (len > vrp->buf_size - sizeof(struct rpmsg_hdr)) {
-		dev_err(dev, "message is too big (%d)\n", len);
-		return -EMSGSIZE;
-	}
-
 	/* grab a buffer */
-	msg = get_a_tx_buf(vrp);
+	msg = get_a_tx_buf(vrp, len);
 	if (!msg && !wait)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	/* no free buffer ? wait for one (but bail after 15 seconds) */
 	while (!msg) {
@@ -592,7 +574,7 @@ static int rpmsg_send_offchannel_raw(struct rpmsg_device *rpdev,
 		 * if later this happens to be required, it'd be easy to add.
 		 */
 		err = wait_event_interruptible_timeout(vrp->sendq,
-					(msg = get_a_tx_buf(vrp)),
+					(msg = get_a_tx_buf(vrp, len)),
 					msecs_to_jiffies(15000));
 
 		/* disable "tx-complete" interrupts if we're the last sleeper */
@@ -601,16 +583,68 @@ static int rpmsg_send_offchannel_raw(struct rpmsg_device *rpdev,
 		/* timeout ? */
 		if (!err) {
 			dev_err(dev, "timeout waiting for a tx buffer\n");
-			return -ERESTARTSYS;
+			return ERR_PTR(-ERESTARTSYS);
 		}
 	}
+
+       *len -= sizeof(*msg);
+       return msg + 1;
+}
+
+static int virtio_rpmsg_release_tx_buffer(struct rpmsg_endpoint *ept, void *txbuf)
+{
+	/* Clearing buffer should be sufficient since the tail cannot
+	 * be increased from the sender side
+	 */
+
+	struct rpmsg_device *rpdev = ept->rpdev;
+	struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(rpdev);
+	struct virtproc_info *vrp = vch->vrp;
+
+	memset(txbuf, 0, vrp->buf_size);
+
+	return 0;
+}
+
+static int virtio_rpmsg_send_offchannel_nocopy(struct rpmsg_endpoint *ept, u32 src,
+                                              u32 dst, void *data, int len)
+{
+       struct rpmsg_device *rpdev = ept->rpdev;
+       struct virtio_rpmsg_channel *vch = to_virtio_rpmsg_channel(rpdev);
+       struct virtproc_info *vrp = vch->vrp;
+       struct device *dev = &rpdev->dev;
+       struct scatterlist sg;
+       struct rpmsg_hdr *msg;
+       int err;
+
+       /* bcasting isn't allowed */
+       if (src == RPMSG_ADDR_ANY || dst == RPMSG_ADDR_ANY) {
+               dev_err(dev, "invalid addr (src 0x%x, dst 0x%x)\n", src, dst);
+               return -EINVAL;
+       }
+
+       /*
+        * We currently use fixed-sized buffers, and therefore the payload
+        * length is limited.
+        *
+        * One of the possible improvements here is either to support
+        * user-provided buffers (and then we can also support zero-copy
+        * messaging), or to improve the buffer allocator, to support
+        * variable-length buffer sizes.
+        */
+       if (len > vrp->buf_size - sizeof(struct rpmsg_hdr)) {
+               dev_err(dev, "message is too big (%d)\n", len);
+               return -EMSGSIZE;
+       }
+
+       msg = data - sizeof(*msg);
+
 
 	msg->len = cpu_to_rpmsg16(rpdev, len);
 	msg->flags = 0;
 	msg->src = cpu_to_rpmsg32(rpdev, src);
 	msg->dst = cpu_to_rpmsg32(rpdev, dst);
 	msg->reserved = 0;
-	memcpy(msg->data, data, len);
 
 	dev_dbg(dev, "TX From 0x%x, To 0x%x, Len %d, Flags %d, Reserved %d\n",
 		src, dst, len, msg->flags, msg->reserved);
@@ -642,38 +676,74 @@ out:
 	return err;
 }
 
+static int virtio_rpmsg_send_nocopy(struct rpmsg_endpoint *ept, void *data, int len)
+{
+	return virtio_rpmsg_send_offchannel_nocopy(ept, ept->addr, ept->rpdev->dst,
+                                                  data, len);
+}
+
+static int virtio_rpmsg_sendto_nocopy(struct rpmsg_endpoint *ept, void *data, int len,
+                                     u32 dst)
+{
+	return virtio_rpmsg_send_offchannel_nocopy(ept, ept->addr, dst, data, len);
+}
+
+static int virtio_rpmsg_send_offchannel(struct rpmsg_endpoint *ept, u32 src,
+					u32 dst, void *data, int len)
+{
+	unsigned int max;
+    void *buf;
+
+	buf = virtio_rpmsg_get_tx_payload_buffer(ept, &max, true);
+       if (IS_ERR(buf))
+              return PTR_ERR(buf);
+
+	if (len > max)
+        len = max;
+	
+	memcpy(buf, data, len);
+
+	return virtio_rpmsg_send_offchannel_nocopy(ept, src, dst, buf, len);
+}
+
 static int virtio_rpmsg_send(struct rpmsg_endpoint *ept, void *data, int len)
 {
-	struct rpmsg_device *rpdev = ept->rpdev;
-	u32 src = ept->addr, dst = rpdev->dst;
-
-	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, true);
+	return virtio_rpmsg_send_offchannel(ept, ept->addr, ept->rpdev->dst, data, len);
 }
 
 static int virtio_rpmsg_sendto(struct rpmsg_endpoint *ept, void *data, int len,
-			       u32 dst)
+                              u32 dst)
 {
-	struct rpmsg_device *rpdev = ept->rpdev;
-	u32 src = ept->addr;
+       return virtio_rpmsg_send_offchannel(ept, ept->addr, dst, data, len);
+}
 
-	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, true);
+static int virtio_rpmsg_trysend_offchannel(struct rpmsg_endpoint *ept, u32 src,
+					   u32 dst, void *data, int len)
+{
+	unsigned int max;
+       void *buf;
+
+       buf = virtio_rpmsg_get_tx_payload_buffer(ept, &max, false);
+       if (IS_ERR(buf))
+               return PTR_ERR(buf);
+
+       if (len > max)
+               len = max;
+       memcpy(buf, data, len);
+
+
+	return virtio_rpmsg_send_offchannel_nocopy(ept, src, dst, buf, len);
 }
 
 static int virtio_rpmsg_trysend(struct rpmsg_endpoint *ept, void *data, int len)
 {
-	struct rpmsg_device *rpdev = ept->rpdev;
-	u32 src = ept->addr, dst = rpdev->dst;
-
-	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, false);
+       return virtio_rpmsg_trysend_offchannel(ept, ept->addr, ept->rpdev->dst, data, len);
 }
 
 static int virtio_rpmsg_trysendto(struct rpmsg_endpoint *ept, void *data,
-				  int len, u32 dst)
+                                 int len, u32 dst)
 {
-	struct rpmsg_device *rpdev = ept->rpdev;
-	u32 src = ept->addr;
-
-	return rpmsg_send_offchannel_raw(rpdev, src, dst, data, len, false);
+       return virtio_rpmsg_trysend_offchannel(ept, ept->addr, dst, data, len);
 }
 
 static ssize_t virtio_rpmsg_get_mtu(struct rpmsg_endpoint *ept)

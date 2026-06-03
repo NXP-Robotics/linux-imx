@@ -413,7 +413,7 @@ config VCC
 source "drivers/tty/hvc/Kconfig"
 
 config RPMSG_TTY
-	tristate "RPMSG tty driver"
+	tristate "RPMSG TTY Driver"
 	depends on RPMSG
 	help
 	  Say y here to export rpmsg endpoints as tty devices, usually found
@@ -423,6 +423,22 @@ config RPMSG_TTY
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called rpmsg_tty.
+
+config RPMSG_TTY2
+	tristate "RPMSG TTY Driver with flow control"
+	depends on RPMSG
+	help
+	  Say Y here to export rpmsg endpoints as tty device usually found in
+	  /dev/ttyRx. They make it possible for user-space programs to send
+	  and receive rpmsg packets through tty interface.
+
+	  This driver uses flow control on the transfers and is compatible with
+	  the rpmsg tty driver in NuttX
+
+	  Here is some possible use case:
+	  1.Connect to the embedded processor RTOS shell
+	  2.Communicate with the embedded GPS subsystem through NMEA
+	  3.Communicate with the embedded modem subsystem through ATCMD
 
 endif # TTY
 
