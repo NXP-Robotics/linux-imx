@@ -11,6 +11,8 @@
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_graph.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
@@ -23,8 +25,13 @@
 #include <media/v4l2-async.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-mc.h>
+#include <media/v4l2-subdev.h>
+#include <media/v4l2-fwnode.h>
 
 #include "imx8-isi-core.h"
+
+#define MXC_ISI_WORK_TIMEOUT      msecs_to_jiffies(2000)
+#define MXC_ISI_NAME              "mcx-isi"
 
 /* -----------------------------------------------------------------------------
  * V4L2 async subdevs
@@ -83,6 +90,8 @@ static int mxc_isi_async_notifier_complete(struct v4l2_async_notifier *notifier)
 
 	dev_dbg(isi->dev, "All subdevs bound\n");
 
+	cancel_delayed_work(&isi->timeout_work);
+
 	ret = v4l2_device_register_subdev_nodes(&isi->v4l2_dev);
 	if (ret < 0) {
 		dev_err(isi->dev,
@@ -91,6 +100,85 @@ static int mxc_isi_async_notifier_complete(struct v4l2_async_notifier *notifier)
 	}
 
 	return media_device_register(&isi->media_dev);
+}
+
+static void mxc_isi_async_timeout(struct work_struct *ptr)
+{
+	struct delayed_work *twork = to_delayed_work(ptr);
+	struct mxc_isi_dev *isi = container_of(twork, struct mxc_isi_dev,
+			timeout_work);
+	struct v4l2_device *v4l2_dev = &isi->v4l2_dev;
+	struct v4l2_subdev *sd, *tmp;
+
+	list_for_each_entry_safe(sd, tmp, &v4l2_dev->subdevs, list) {
+		if (sd && sd->fwnode && sd->dev) {
+			struct device_node *np, *port, *ep, *remote;
+
+			np = to_of_node(sd->fwnode);
+
+			if (np) {
+				bool need_to_unload = false;
+
+				for_each_child_of_node(np, port) {
+					if (!of_node_name_eq(port, "ports") && !of_node_name_eq(port, "port"))
+						continue;
+
+					for_each_child_of_node(port, ep) {
+						if (!ep->child)
+							continue;
+
+						remote = of_graph_get_remote_endpoint(ep->child);
+						if (!remote || !remote->parent || !remote->parent->parent || !remote->parent->parent->parent)
+							continue;
+
+						struct i2c_client *client = of_find_i2c_device_by_node(remote->parent->parent->parent);
+
+						if (client) {
+							if (!client->dev.driver) {
+								dev_warn(isi->dev, "%s i2c driver failed to load\n", sd->name);
+								need_to_unload = true;
+							}
+						}
+					}
+				}
+				if (need_to_unload) {
+					struct platform_device *pdev = to_platform_device(sd->dev);
+
+					for (int i = 0; i < isi->pdata->num_channels; ++i)
+						if (&isi->pipes[i].sd == sd)
+							mxc_isi_video_unregister(&isi->pipes[i]);
+
+					v4l2_device_unregister_subdev(sd);
+					platform_device_unregister(pdev);
+				}
+			}
+		}
+	}
+
+	if (list_empty(&isi->notifier.waiting_list)) {
+		bool all_subdevs_ready = true;
+
+		list_for_each_entry_safe(sd, tmp, &v4l2_dev->subdevs, list) {
+			struct v4l2_async_connection *asc;
+
+			if (sd->asc_list.next) {
+				list_for_each_entry(asc, &sd->asc_list, asc_subdev_entry) {
+					if (asc && asc->notifier) {
+						if (!list_empty(&asc->notifier->waiting_list))
+							all_subdevs_ready = false;
+					}
+				}
+			}
+		}
+
+		if (all_subdevs_ready) {
+			mxc_isi_async_notifier_complete(&isi->notifier);
+			return;
+		}
+	}
+
+	queue_delayed_work(isi->work_queue, &isi->timeout_work,
+			   MXC_ISI_WORK_TIMEOUT);
 }
 
 static const struct v4l2_async_notifier_operations mxc_isi_async_notifier_ops = {
@@ -550,6 +638,14 @@ static int mxc_isi_probe(struct platform_device *pdev)
 		goto err_xbar;
 	}
 
+	INIT_DELAYED_WORK(&isi->timeout_work, mxc_isi_async_timeout);
+	isi->work_queue = create_workqueue(MXC_ISI_NAME);
+	if (!isi->work_queue)
+		goto err_xbar;
+
+	queue_delayed_work(isi->work_queue, &isi->timeout_work,
+			   MXC_ISI_WORK_TIMEOUT);
+
 	mxc_isi_debug_init(isi);
 
 	pm_runtime_put(dev);
@@ -578,6 +674,8 @@ static void mxc_isi_remove(struct platform_device *pdev)
 
 	mxc_isi_crossbar_cleanup(&isi->crossbar);
 	mxc_isi_v4l2_cleanup(isi);
+
+	destroy_workqueue(isi->work_queue);
 
 	pm_runtime_disable(isi->dev);
 }
