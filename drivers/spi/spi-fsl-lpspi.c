@@ -131,6 +131,7 @@ struct fsl_lpspi_data {
 	struct completion dma_tx_completion;
 
 	const struct fsl_lpspi_devtype_data *devtype_data;
+	bool first_transaction_since_cs_low;
 };
 
 /*
@@ -285,6 +286,12 @@ static void fsl_lpspi_set_cmd(struct fsl_lpspi_data *fsl_lpspi)
 {
 	u32 temp = 0;
 
+	if (!fsl_lpspi->first_transaction_since_cs_low) {
+		/* If not first transaction then just don't touch the TCR */
+		return;
+	}
+	fsl_lpspi->first_transaction_since_cs_low = false;
+
 	temp |= fsl_lpspi->config.bpw - 1;
 	temp |= (fsl_lpspi->config.mode & 0x3) << 30;
 	temp |= (fsl_lpspi->config.chip_select & 0x3) << 24;
@@ -295,7 +302,9 @@ static void fsl_lpspi_set_cmd(struct fsl_lpspi_data *fsl_lpspi)
 		 * For the first transfer, clear TCR_CONTC to assert SS.
 		 * For subsequent transfer, set TCR_CONTC to keep SS asserted.
 		 */
-		if (!fsl_lpspi->usedma) {
+		if (fsl_lpspi->usedma) {
+			temp |= TCR_CONT;
+		} else {
 			temp |= TCR_CONT;
 			if (fsl_lpspi->is_first_byte)
 				temp &= ~TCR_CONTC;
@@ -304,7 +313,6 @@ static void fsl_lpspi_set_cmd(struct fsl_lpspi_data *fsl_lpspi)
 		}
 	}
 	writel(temp, fsl_lpspi->base + IMX7ULP_TCR);
-
 	dev_dbg(fsl_lpspi->dev, "TCR=0x%x\n", temp);
 }
 
@@ -560,6 +568,26 @@ static int fsl_lpspi_reset(struct fsl_lpspi_data *fsl_lpspi)
 	return 0;
 }
 
+static int fsl_lpspi_reset_but_keep_enabled(struct fsl_lpspi_data *fsl_lpspi)
+{
+	u32 temp;
+
+	if (!fsl_lpspi->usedma) {
+		/* Disable all interrupt */
+		fsl_lpspi_intctrl(fsl_lpspi, 0);
+	}
+
+	/* W1C for all flags in SR */
+	temp = 0x3F << 8;
+	writel(temp, fsl_lpspi->base + IMX7ULP_SR);
+
+	/* Clear FIFO */
+	temp = CR_RRF | CR_RTF | CR_MEN;
+	writel(temp, fsl_lpspi->base + IMX7ULP_CR);
+
+	return 0;
+}
+
 static void fsl_lpspi_dma_rx_callback(void *cookie)
 {
 	struct fsl_lpspi_data *fsl_lpspi = (struct fsl_lpspi_data *)cookie;
@@ -676,8 +704,7 @@ static int fsl_lpspi_dma_transfer(struct spi_controller *controller,
 			return -EINTR;
 		}
 	}
-
-	fsl_lpspi_reset(fsl_lpspi);
+	fsl_lpspi_reset_but_keep_enabled(fsl_lpspi);
 
 	return 0;
 }
@@ -860,6 +887,14 @@ static int fsl_lpspi_init_rpm(struct fsl_lpspi_data *fsl_lpspi)
 	return 0;
 }
 
+static void lpspi_set_cs(struct spi_device *spi, bool enable) {
+	struct fsl_lpspi_data *fsl_lpspi =
+					spi_controller_get_devdata(spi->controller);
+
+	if (enable)
+		fsl_lpspi->first_transaction_since_cs_low = true;
+}
+
 static int fsl_lpspi_probe(struct platform_device *pdev)
 {
 	const struct fsl_lpspi_devtype_data *devtype_data;
@@ -951,6 +986,7 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 			num_cs = 1;
 	}
 
+
 	controller->bits_per_word_mask = SPI_BPW_RANGE_MASK(8, 32);
 	controller->transfer_one = fsl_lpspi_transfer_one;
 	controller->prepare_transfer_hardware = lpspi_prepare_xfer_hardware;
@@ -960,6 +996,7 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 	controller->dev.of_node = pdev->dev.of_node;
 	controller->bus_num = pdev->id;
 	controller->num_chipselect = num_cs;
+	controller->set_cs = lpspi_set_cs;
 	controller->target_abort = fsl_lpspi_target_abort;
 	if (!fsl_lpspi->is_target)
 		controller->use_gpio_descriptors = true;
