@@ -175,6 +175,22 @@ static void panthor_device_free_page(struct drm_device *ddev, void *data)
 	__free_page(data);
 }
 
+static int panthor_device_attach_power_domains(struct panthor_device *ptdev)
+{
+	int ret;
+	struct dev_pm_domain_attach_data pd_data = {
+			.pd_names   = (const char *[]) {"gpumix"},
+			.num_pd_names = 1,
+		};
+
+	ret = dev_pm_domain_attach_list(ptdev->base.dev, &pd_data, &ptdev->pd_list);
+	if (ret < 0)
+		dev_dbg(ptdev->base.dev, "%s: didn't attach perf power domains, ret=%d",
+				__func__, ret);
+
+	return ret;
+}
+
 int panthor_device_init(struct panthor_device *ptdev)
 {
 	u32 *dummy_page_virt;
@@ -246,6 +262,9 @@ int panthor_device_init(struct panthor_device *ptdev)
 
 	ptdev->phys_addr = res->start;
 
+	ret = panthor_device_attach_power_domains(ptdev);
+	if (ret < 0)
+		return ret;
 	ret = devm_pm_runtime_enable(ptdev->base.dev);
 	if (ret)
 		return ret;
