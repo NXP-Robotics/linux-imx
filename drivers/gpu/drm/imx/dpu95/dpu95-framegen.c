@@ -218,8 +218,17 @@ void dpu95_fg_cfg_videomode(struct dpu95_framegen *fg,
 	/* constant color is green(used in panic mode)  */
 	dpu95_fg_write(fg, FGCCR, CCGREEN(0x3ff));
 
-	if (enc_is_dsi)
-		clk_set_rate(dpu->clk_pix, m->crtc_clock * 1000);
+	if (enc_is_dsi) {
+		unsigned long parent_rate = clk_get_rate(clk_get_parent(dpu->clk_pix));
+		unsigned long desired = (unsigned long)m->crtc_clock * 1000;
+
+		/* Closest integer divider */
+		unsigned int div = (parent_rate + desired / 2) / desired;  // rounds to nearest
+		if (div < 1)
+			div = 1;
+
+		clk_set_rate(dpu->clk_pix, parent_rate / div);
+	}
 
 	ret = regmap_update_bits(dpu->regmap, dpu->data->clock_ctrl,
 				 DSIP_CLK_SEL(fg->id),

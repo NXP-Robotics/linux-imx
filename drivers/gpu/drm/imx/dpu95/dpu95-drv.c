@@ -29,11 +29,28 @@
 
 #define DRIVER_NAME	"imx95-dpu"
 
+static int imx_drm_dpu_dumb_create(struct drm_file *file_priv,
+				   struct drm_device *drm,
+				   struct drm_mode_create_dumb *args)
+{
+	u32 width = args->width;
+	int ret;
+
+	args->width = ALIGN(width, 8);
+
+	ret = drm_gem_dma_dumb_create(file_priv, drm, args);
+	if (ret)
+		return ret;
+
+	args->width = width;
+	return ret;
+}
+
 DEFINE_DRM_GEM_DMA_FOPS(dpu95_drm_driver_fops);
 
 static struct drm_driver dpu95_drm_driver = {
 	.driver_features = DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC | DRIVER_RENDER,
-	DRM_GEM_DMA_DRIVER_OPS,
+	DRM_GEM_DMA_DRIVER_OPS_WITH_DUMB_CREATE(imx_drm_dpu_dumb_create),
 	DRM_FBDEV_DMA_DRIVER_OPS,
 	.ioctls                 = imx_drm_dpu95_ioctls,
 	.num_ioctls             = ARRAY_SIZE(imx_drm_dpu95_ioctls),
