@@ -277,6 +277,20 @@ config VIDEO_IMX415
 	  To compile this driver as a module, choose M here: the
 	  module will be called imx415.
 
+config VIDEO_IMX477
+    	tristate "Sony IMX477 sensor support"
+    	depends on OF_GPIO
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_I2C
+    	select VIDEO_V4L2_SUBDEV_API
+    	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the Sony
+	  IMX477 camera.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called imx477.
+
 config VIDEO_IMX519
 	tristate "Arducam IMX519 sensor support"
 	depends on I2C && VIDEO_DEV
@@ -847,6 +861,14 @@ config VIDEO_VGXY61
 source "drivers/media/i2c/ccs/Kconfig"
 source "drivers/media/i2c/et8ek8/Kconfig"
 source "drivers/media/i2c/ox05b1s/Kconfig"
+
+config VIDEO_DUMMY_SENSOR
+	tristate "Dummy sensor support"
+	help
+	  This is a V4L2 sensor driver for CSI2 sources that have no actual
+	  controls but needs to hook into a V4L2 CSI2 receiver subdevice.
+	  To do that it allows any format and resolution to be requested, but
+	  it is only stored rather than actioned.
 
 endif
 

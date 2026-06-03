@@ -13,6 +13,7 @@
  * Copyright (C) 2018 Intel Corporation
  *
  */
+//Copyright 2025 NXP
 
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -217,6 +218,81 @@ static const struct cci_reg_sequence imx219_4lane_regs[] = {
 
 	/* 4-Lane CSI Mode */
 	{ IMX219_REG_CSI_LANE_MODE, IMX219_CSI_4_LANE_MODE },
+};
+
+static const struct cci_reg_sequence imx219_init_setting_1080p[] = {
+
+	{CCI_REG8(0x0100), 0x00},
+	{CCI_REG8(0x30eb), 0x05},
+	{CCI_REG8(0x30eb), 0x0c},
+	{CCI_REG8(0x300a), 0xff},
+	{CCI_REG8(0x300b), 0xff},
+	{CCI_REG8(0x30eb), 0x05},
+	{CCI_REG8(0x30eb), 0x09},
+	{CCI_REG8(0x0114), 0x01},
+	{CCI_REG8(0x0128), 0x00},
+	{CCI_REG8(0x012a), 0x18},
+	{CCI_REG8(0x012b), 0x00},
+	// vts
+	{CCI_REG8(0x0160), 0x06},
+	{CCI_REG8(0x0161), 0xe4},
+
+	{CCI_REG8(0x0162), 0x0d},
+	{CCI_REG8(0x0163), 0x78},
+	{CCI_REG8(0x0164), 0x02},
+	{CCI_REG8(0x0165), 0xa8},
+	{CCI_REG8(0x0166), 0x0a},
+	{CCI_REG8(0x0167), 0x27},
+	{CCI_REG8(0x0168), 0x02},
+	{CCI_REG8(0x0169), 0xb4},
+	{CCI_REG8(0x016a), 0x06},
+	{CCI_REG8(0x016b), 0xeb},
+	{CCI_REG8(0x016c), 0x07},
+	{CCI_REG8(0x016d), 0x80},
+	{CCI_REG8(0x016e), 0x04},
+	{CCI_REG8(0x016f), 0x38},
+	{CCI_REG8(0x0170), 0x01},
+	{CCI_REG8(0x0171), 0x01},
+	// mirror
+	//{0x0172, 0x01},
+
+	{CCI_REG8(0x0174), 0x00},
+	{CCI_REG8(0x0175), 0x00},
+	{CCI_REG8(0x0301), 0x05},
+	{CCI_REG8(0x0303), 0x01},
+	{CCI_REG8(0x0304), 0x03},
+	{CCI_REG8(0x0305), 0x03},
+	{CCI_REG8(0x0306), 0x00},
+	{CCI_REG8(0x0307), 0x39},
+	{CCI_REG8(0x030b), 0x01},
+	{CCI_REG8(0x030c), 0x00},
+	{CCI_REG8(0x030d), 0x72},
+	{CCI_REG8(0x0624), 0x07},
+	{CCI_REG8(0x0625), 0x80},
+	{CCI_REG8(0x0626), 0x04},
+	{CCI_REG8(0x0627), 0x38},
+	{CCI_REG8(0x455e), 0x00},
+	{CCI_REG8(0x471e), 0x4b},
+	{CCI_REG8(0x4767), 0x0f},
+	{CCI_REG8(0x4750), 0x14},
+	{CCI_REG8(0x4540), 0x00},
+	{CCI_REG8(0x47b4), 0x14},
+	{CCI_REG8(0x4713), 0x30},
+	{CCI_REG8(0x478b), 0x10},
+	{CCI_REG8(0x478f), 0x10},
+	{CCI_REG8(0x4793), 0x10},
+	{CCI_REG8(0x4797), 0x0e},
+	{CCI_REG8(0x479b), 0x0e},
+
+	// vts
+	{CCI_REG8(0x0160), 0x06},
+	{CCI_REG8(0x0161), 0xe4},
+
+	{CCI_REG8(0x0162), 0x0d},
+	{CCI_REG8(0x0163), 0x78},
+
+
+	 {CCI_REG8(0xFFFF), 0x00}
 };
 
 static const s64 imx219_link_freq_menu[] = {
@@ -724,6 +800,7 @@ static int imx219_enable_streams(struct v4l2_subdev *sd,
 {
 	struct imx219 *imx219 = to_imx219(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(&imx219->sd);
+	struct v4l2_mbus_framefmt *format;
 	int ret;
 
 	ret = pm_runtime_resume_and_get(&client->dev);
@@ -752,6 +829,20 @@ static int imx219_enable_streams(struct v4l2_subdev *sd,
 			__func__, ret);
 		goto err_rpm_put;
 	}
+
+	format = v4l2_subdev_state_get_format(state, 0);
+	if (format->height == 1080 ) {
+	dev_err(&client->dev, "%s format->height = %d write 1080p init sequence reg \n", __func__, format->height);
+		/* Send all registers for 1080p */
+	ret = cci_multi_reg_write(imx219->regmap, imx219_init_setting_1080p,
+				  ARRAY_SIZE(imx219_init_setting_1080p), NULL);
+
+	if (ret) {
+		dev_err(&client->dev, "%s failed to set 1080p init register settings\n", __func__);
+		goto err_rpm_put;
+	}
+	}
+
 
 	/* Apply customized values from user */
 	ret =  __v4l2_ctrl_handler_setup(imx219->sd.ctrl_handler);
