@@ -47,7 +47,14 @@ struct rpmsg_device_ops {
 
 /**
  * struct rpmsg_endpoint_ops - indirection table for rpmsg_endpoint operations
- * @destroy_ept:	see @rpmsg_destroy_ept(), required
+ * @destroy_ept:		see @rpmsg_destroy_ept(), required
+ * @get_tx_buffer_size:		see @rpmsg_get_tx_buffer_size(), optional
+ * @get_rx_buffer_size:		see @rpmsg_get_rx_buffer_size(), optional
+ * @get_tx_payload_buffer:	see @rpmsg_get_tx_payload_buffer(), optional
+ * @release_tx_buffer:		see @rpmsg_release_tx_buffer(), optional
+ * @send_nocopy:		see @rpmsg_send_nocopy(), optional
+ * @sendto_nocopy:		see @rpmsg_sendto_nocopy(), optional
+ * @send_offchannel_nocopy:	see @rpmsg_send_offchannel_nocopy(), optional
  * @send:		see @rpmsg_send(), required
  * @sendto:		see @rpmsg_sendto(), optional
  * @trysend:		see @rpmsg_trysend(), required
@@ -62,6 +69,17 @@ struct rpmsg_device_ops {
  */
 struct rpmsg_endpoint_ops {
 	void (*destroy_ept)(struct rpmsg_endpoint *ept);
+
+	int (*get_tx_buffer_size)(struct rpmsg_endpoint *ept);
+    int (*get_rx_buffer_size)(struct rpmsg_endpoint *ept);
+
+       void *(*get_tx_payload_buffer)(struct rpmsg_endpoint *ept,
+                                      unsigned int *len, bool wait);
+       int (*release_tx_buffer)(struct rpmsg_endpoint *ept, void *txbuf);
+       int (*send_nocopy)(struct rpmsg_endpoint *ept, void *data, int len);
+       int (*sendto_nocopy)(struct rpmsg_endpoint *ept, void *data, int len, u32 dst);
+       int (*send_offchannel_nocopy)(struct rpmsg_endpoint *ept, u32 src, u32 dst,
+                                     void *data, int len);
 
 	int (*send)(struct rpmsg_endpoint *ept, void *data, int len);
 	int (*sendto)(struct rpmsg_endpoint *ept, void *data, int len, u32 dst);
