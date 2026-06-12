@@ -286,7 +286,7 @@ static void fsl_lpspi_set_cmd(struct fsl_lpspi_data *fsl_lpspi)
 {
 	u32 temp = 0;
 
-	if (!fsl_lpspi->first_transaction_since_cs_low) {
+	if (fsl_lpspi->usedma && !fsl_lpspi->first_transaction_since_cs_low) {
 		/* If not first transaction then just don't touch the TCR */
 		return;
 	}
