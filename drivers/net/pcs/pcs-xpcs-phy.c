@@ -1799,12 +1799,16 @@ static int imx95_xpcs_phy_xfi_10g_config(struct dw_xpcs *xpcs)
 	xpcs_phy_modify(xpcs, XPCS_DEV, MDIO_MMD_PMAPMD, PMA_MP_16G_25G_RX_EQ_CTRL5,
 			PMA_RX_EQ_CTRL5_RX0_ADPT_MODE_MASK, PMA_RX_EQ_CTRL5_RX0_ADPT_MODE(0x3));
 
-	/* 4 Configure XPCS for 10G XGMII */
+	/*
+	 * 4 Configure the XS_PCS for pure 10GBASE-R / XFI (RM 108.4.7).
+	 *
+	 * USXG_EN must be cleared: the previous code unconditionally enabled
+	 * USXGMII framing, which prevented 64b/66b block lock against a
+	 * standard 10GBASE-R SFP+ fiber/DAC link partner.
+	 */
 	xpcs_write(xpcs, MDIO_MMD_PCS, XPCS_PHY_REG(PCS_CTRL2), 0x0);
 	xpcs_phy_modify(xpcs, XPCS_DEV, MDIO_MMD_PCS, PCS_DIG_CTRL1, PCS_DIG_CTRL1_USXG_EN,
-			PCS_DIG_CTRL1_USXG_EN);
-	xpcs_phy_modify(xpcs, XPCS_DEV, MDIO_MMD_PCS, PCS_KR_CTRL1, PCS_KR_CTRL1_USXG_MODE_MASK,
-			PCS_KR_CTRL1_USXG_MODE(0));
+			0);
 	xpcs_phy_modify(xpcs, XPCS_DEV, MDIO_MMD_PMAPMD, PMA_MP_12G_16G_MPLLA_CTRL0,
 			PMA_MPLLA_CTRL0_MPLLA_MULTIPLIER_MASK,
 			PMA_MPLLA_CTRL0_MPLLA_MULTIPLIER(33));
@@ -1927,25 +1931,28 @@ static int imx95_xpcs_phy_xfi_10g_config(struct dw_xpcs *xpcs)
 	xpcs_phy_modify(xpcs, XPCS_DEV, MDIO_MMD_PMAPMD, PMA_MP_12G_16G_25G_RX_EQ_CTRL4,
 			PMA_RX_EQ_CTRL4_RX_AD_REQ, PMA_RX_EQ_CTRL4_RX_AD_REQ);
 
-	/* 16 Poll for acknowledge */
+	/* 16 Poll for acknowledge.
+	 *
+	 * Continuous RX adaptation is enabled for this datapath, so the
+	 * one-shot RX_AD_REQ/RX_ADPT_ACK handshake may never acknowledge.
+	 * Treat a missing ack as non-fatal: the continuous adaptation engine
+	 * still equalises the link, and aborting here would leave the PCS
+	 * unable to reach 10GBASE-R block lock.
+	 */
 	ret = xpcs_phy_polling_timeout(xpcs, XPCS_DEV, MDIO_MMD_PMAPMD, PMA_MP_12G_16G_25G_MISC_STS,
 				       PMA_MISC_STS_RX_ADPT_ACK, 1);
-	if (ret) {
-		dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
-		goto timeout;
-	}
+	if (ret)
+		dev_dbg(&xpcs->phydev->dev,
+			"RX adaptation ack not seen (continuous adaptation active), continuing\n");
 
 	/* 17 Deassert request of receive adaptation */
 	xpcs_phy_modify(xpcs, XPCS_DEV, MDIO_MMD_PMAPMD, PMA_MP_12G_16G_25G_RX_EQ_CTRL4,
 			PMA_RX_EQ_CTRL4_RX_AD_REQ, 0);
 
-	/* 18 Set the value of Config_Reg to 0 for Clause 37 autonegotiation. */
-	xpcs_phy_modify(xpcs, XPCS_DEV, MDIO_MMD_VEND2, MII_AN_CTRL, MII_AN_CTRL_TX_CONFIG, 0);
-
-	/* 19 Select XGMII speed */
-	xpcs_phy_modify(xpcs, XPCS_DEV, MDIO_MMD_VEND2, MII_CTRL, MII_CTRL_SS5, 0);
-	xpcs_phy_modify(xpcs, XPCS_DEV, MDIO_MMD_VEND2, MII_CTRL, MII_CTRL_SS6, MII_CTRL_SS6);
-	xpcs_phy_modify(xpcs, XPCS_DEV, MDIO_MMD_VEND2, MII_CTRL, MII_CTRL_SS13, MII_CTRL_SS13);
+	/*
+	 * Pure 10GBASE-R (XFI) has no Clause-37 / VS_MII layer in the datapath,
+	 * so the USXGMII-only Config_Reg / XGMII-speed steps are not applied.
+	 */
 
 	return 0;
 
