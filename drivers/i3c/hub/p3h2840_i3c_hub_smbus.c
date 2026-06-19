@@ -150,9 +150,12 @@ static int p3h2x4x_read_smbus_transaction_status(struct p3h2x4x_i3c_hub_dev *hub
 	u8 status;
 	int ret;
 
-	mutex_unlock(&hub->etx_mutex);
+	/*
+	 * Hold etx_mutex across the wait. Descriptor/TX/readback all share
+	 * PAGE_PTR; dropping it here lets the IBI handler or another agent
+	 * port repaginate and corrupt the readback.
+	 */
 	fsleep(P3H2X4X_SMBUS_400KHZ_TRANSFER_TIMEOUT(data_length));
-	mutex_lock(&hub->etx_mutex);
 
 	ret = regmap_read(hub->regmap, target_port_status, &status_read);
 	if (ret)
