@@ -4,6 +4,7 @@
  * This P3H2X4X driver file contain functions for SMBus/I2C virtual Bus creation and read/write.
  */
 #include <linux/mfd/p3h2840.h>
+#include <linux/of.h>
 #include <linux/regmap.h>
 
 #include "p3h2840_i3c_hub.h"
@@ -609,9 +610,17 @@ int p3h2x4x_tp_smbus_algo(struct p3h2x4x_i3c_hub_dev *hub)
 			return ret;
 		}
 
-		ibi_mask |= hub->tp_bus[tp].tp_mask;
+		/*
+		 * Agent IBI is only for downstream bus-master / MCTP ports.
+		 * On unused/floating ports it self-triggers, surfacing as the
+		 * controller's "Timeout when polling for IBIWON". Opt in.
+		 */
+		if (of_property_read_bool(hub->tp_bus[tp].of_node,
+					  "nxp,smbus-agent-ibi")) {
+			ibi_mask |= hub->tp_bus[tp].tp_mask;
+			hub->hub_config.tp_config[tp].ibi_en = true;
+		}
 		hub->tp_bus[tp].is_registered = true;
-		hub->hub_config.tp_config[tp].ibi_en = true;
 		hub->tp_bus[tp].tp_smbus_adapter = smbus_adapter;
 	}
 
