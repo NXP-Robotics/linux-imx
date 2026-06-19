@@ -9,6 +9,7 @@
 #include <linux/platform_device.h>
 #include <linux/mfd/p3h2840.h>
 #include <linux/util_macros.h>
+#include <linux/gpio/driver.h>
 
 #include "p3h2840_i3c_hub.h"
 
@@ -100,10 +101,103 @@ static int p3h2x4x_configure_ldo(struct device *dev)
 	return 0;
 }
 
+/*
+ * GPIO controller implementation
+ *
+ * GPIO numbering: 0-7 = SCL pins (TP0-TP7), 8-15 = SDA pins (TP0-TP7)
+ */
+
+#define P3H2X4X_GPIO_COUNT	16	/* 8 TPs x 2 pins (SCL/SDA) */
+
+static int p3h2x4x_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
+{
+	struct p3h2x4x_i3c_hub_dev *hub = gpiochip_get_data(gc);
+	unsigned int tp = offset % 8;
+	bool is_sda = offset >= 8;
+	unsigned int reg = is_sda ? P3H2X4X_TP_SDA_OUT_EN : P3H2X4X_TP_SCL_OUT_EN;
+	unsigned int val;
+	int ret;
+
+	ret = regmap_read(hub->regmap, reg, &val);
+	if (ret)
+		return ret;
+
+	return (val & BIT(tp)) ? GPIO_LINE_DIRECTION_OUT : GPIO_LINE_DIRECTION_IN;
+}
+
+static int p3h2x4x_gpio_direction_input(struct gpio_chip *gc, unsigned int offset)
+{
+	struct p3h2x4x_i3c_hub_dev *hub = gpiochip_get_data(gc);
+	unsigned int tp = offset % 8;
+	bool is_sda = offset >= 8;
+	unsigned int reg = is_sda ? P3H2X4X_TP_SDA_OUT_EN : P3H2X4X_TP_SCL_OUT_EN;
+
+	/* Disable output to make it an input (high-Z) */
+	return regmap_update_bits(hub->regmap, reg, BIT(tp), 0);
+}
+
+static int p3h2x4x_gpio_direction_output(struct gpio_chip *gc,
+					 unsigned int offset, int value)
+{
+	struct p3h2x4x_i3c_hub_dev *hub = gpiochip_get_data(gc);
+	unsigned int tp = offset % 8;
+	bool is_sda = offset >= 8;
+	unsigned int out_en_reg = is_sda ? P3H2X4X_TP_SDA_OUT_EN : P3H2X4X_TP_SCL_OUT_EN;
+	unsigned int out_lvl_reg = is_sda ? P3H2X4X_TP_SDA_OUT_LEVEL : P3H2X4X_TP_SCL_OUT_LEVEL;
+	int ret;
+
+	/* Set output level first */
+	ret = regmap_update_bits(hub->regmap, out_lvl_reg, BIT(tp),
+				 value ? BIT(tp) : 0);
+	if (ret)
+		return ret;
+
+	/* Enable output */
+	return regmap_update_bits(hub->regmap, out_en_reg, BIT(tp), BIT(tp));
+}
+
+static int p3h2x4x_gpio_get(struct gpio_chip *gc, unsigned int offset)
+{
+	struct p3h2x4x_i3c_hub_dev *hub = gpiochip_get_data(gc);
+	unsigned int tp = offset % 8;
+	bool is_sda = offset >= 8;
+	unsigned int reg = is_sda ? P3H2X4X_TP_SDA_IN_LEVEL_STS : P3H2X4X_TP_SCL_IN_LEVEL_STS;
+	unsigned int val;
+	int ret;
+
+	ret = regmap_read(hub->regmap, reg, &val);
+	if (ret)
+		return ret;
+
+	return !!(val & BIT(tp));
+}
+
+static int p3h2x4x_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
+{
+	struct p3h2x4x_i3c_hub_dev *hub = gpiochip_get_data(gc);
+	unsigned int tp = offset % 8;
+	bool is_sda = offset >= 8;
+	unsigned int reg = is_sda ? P3H2X4X_TP_SDA_OUT_LEVEL : P3H2X4X_TP_SCL_OUT_LEVEL;
+
+	return regmap_update_bits(hub->regmap, reg, BIT(tp), value ? BIT(tp) : 0);
+}
+
+static int p3h2x4x_gpio_request(struct gpio_chip *gc, unsigned int offset)
+{
+	struct p3h2x4x_i3c_hub_dev *hub = gpiochip_get_data(gc);
+	unsigned int tp = offset % 8;
+
+	/* Only allow access to GPIO pins on ports configured in GPIO mode */
+	if (!(hub->gpio_mode_mask & BIT(tp)))
+		return -EBUSY;
+
+	return 0;
+}
+
 static int p3h2x4x_configure_tp(struct device *dev)
 {
 	struct p3h2x4x_i3c_hub_dev *hub = dev_get_drvdata(dev);
-	u8 mode = 0, smbus = 0, pullup = 0, target_port = 0;
+	u8 mode = 0, smbus = 0, pullup = 0, target_port = 0, gpio = 0;
 	int tp, ret;
 
 	for (tp = 0; tp < P3H2X4X_TP_MAX_COUNT; tp++) {
@@ -112,9 +206,14 @@ static int p3h2x4x_configure_tp(struct device *dev)
 			P3H2X4X_SET_BIT(tp) : 0;
 		smbus |= (hub->hub_config.tp_config[tp].mode == P3H2X4X_TP_MODE_SMBUS) ?
 			 P3H2X4X_SET_BIT(tp) : 0;
+		gpio |= (hub->hub_config.tp_config[tp].mode == P3H2X4X_TP_MODE_GPIO) ?
+			P3H2X4X_SET_BIT(tp) : 0;
 		target_port |= (hub->tp_bus[tp].tp_mask == P3H2X4X_SET_BIT(tp)) ?
 			       hub->tp_bus[tp].tp_mask : 0;
 	}
+
+	/* Store GPIO mode mask for gpio_chip request validation / registration */
+	hub->gpio_mode_mask = gpio;
 
 	ret = regmap_update_bits(hub->regmap, P3H2X4X_TP_PULLUP_EN, pullup, pullup);
 	if (ret)
@@ -128,7 +227,19 @@ static int p3h2x4x_configure_tp(struct device *dev)
 	if (ret)
 		return ret;
 
-	if (target_port & ~smbus) {
+	/*
+	 * Enable GPIO mode for GPIO-configured ports (datasheet Table 10:
+	 * TP_ENABLE=1 + TP_GPIO_MODE_EN=1 makes the port an IO expander and
+	 * keeps it disconnected from the hub network).
+	 */
+	ret = regmap_update_bits(hub->regmap, P3H2X4X_TP_GPIO_MODE_EN, gpio, gpio);
+	if (ret)
+		return ret;
+
+	/* Request the hub-network mux only for network-connected (non-SMBus,
+	 * non-GPIO) target ports.
+	 */
+	if (target_port & ~smbus & ~gpio) {
 		ret = regmap_write(hub->regmap, P3H2X4X_CP_MUX_SET,
 				   P3H2X4X_CONTROLLER_PORT_MUX_REQ);
 		if (ret)
@@ -199,6 +310,9 @@ static void p3h2x4x_parse_tp_dt_settings(struct device *dev,
 
 		if (strcmp(tp_node->name, "smbus") == 0)
 			tp_config[id].mode = P3H2X4X_TP_MODE_SMBUS;
+
+		if (strcmp(tp_node->name, "gpio") == 0)
+			tp_config[id].mode = P3H2X4X_TP_MODE_GPIO;
 
 		tp_config[id].pullup_en =
 			of_property_read_bool(tp_node, "nxp,pullup-enable");
@@ -403,6 +517,27 @@ static int p3h2x4x_i3c_hub_probe(struct platform_device *pdev)
 	ret = p3h2x4x_configure_hw(dev);
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to configure the HUB\n");
+
+	/* Register GPIO controller if any target port is in GPIO mode */
+	if (p3h2x4x_i3c_hub->gpio_mode_mask) {
+		p3h2x4x_i3c_hub->gpio.label = "p3h2x4x-gpio";
+		p3h2x4x_i3c_hub->gpio.parent = dev;
+		p3h2x4x_i3c_hub->gpio.owner = THIS_MODULE;
+		p3h2x4x_i3c_hub->gpio.base = -1;
+		p3h2x4x_i3c_hub->gpio.ngpio = P3H2X4X_GPIO_COUNT;
+		p3h2x4x_i3c_hub->gpio.request = p3h2x4x_gpio_request;
+		p3h2x4x_i3c_hub->gpio.get_direction = p3h2x4x_gpio_get_direction;
+		p3h2x4x_i3c_hub->gpio.direction_input = p3h2x4x_gpio_direction_input;
+		p3h2x4x_i3c_hub->gpio.direction_output = p3h2x4x_gpio_direction_output;
+		p3h2x4x_i3c_hub->gpio.get = p3h2x4x_gpio_get;
+		p3h2x4x_i3c_hub->gpio.set = p3h2x4x_gpio_set;
+		p3h2x4x_i3c_hub->gpio.can_sleep = true;
+
+		ret = devm_gpiochip_add_data(dev, &p3h2x4x_i3c_hub->gpio,
+					     p3h2x4x_i3c_hub);
+		if (ret)
+			return dev_err_probe(dev, ret, "Failed to register GPIO chip\n");
+	}
 
 	/* Register logic for native vertual I3C ports */
 	if (p3h2x4x->is_p3h2x4x_in_i3c) {

@@ -15,6 +15,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regmap.h>
 #include <linux/debugfs.h>
+#include <linux/gpio/driver.h>
 
 /* I3C HUB REGISTERS */
 
@@ -309,6 +310,9 @@ struct p3h2x4x_i3c_hub_dev {
 	struct hub_configuration hub_config;
 	struct tp_bus tp_bus[P3H2X4X_TP_MAX_COUNT];
 	struct i3c_hub *hub;
+	/* GPIO controller for GPIO-mode target ports */
+	struct gpio_chip gpio;
+	u8 gpio_mode_mask;
 };
 
 /**
