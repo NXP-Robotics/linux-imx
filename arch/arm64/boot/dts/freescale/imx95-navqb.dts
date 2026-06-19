@@ -30,44 +30,6 @@
 		enable-active-high;
 	};
 
-	reg_can2_stby: regulator-can2-stby {
-		compatible = "regulator-fixed";
-		regulator-name = "can2-stby";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&i2c4_ioexp20 3 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		vin-supply = <&reg_can2_en>;
-	};
-
-	reg_can2_en: regulator-can2-en {
-		compatible = "regulator-fixed";
-		regulator-name = "can2-en";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&i2c4_ioexp20 2 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-	};
-
-	reg_can3_stby: regulator-can3-stby {
-		compatible = "regulator-fixed";
-		regulator-name = "can3-stby";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&i2c4_ioexp20 5 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		vin-supply = <&reg_can3_en>;
-	};
-
-	reg_can3_en: regulator-can3-en {
-		compatible = "regulator-fixed";
-		regulator-name = "can3-en";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&i2c4_ioexp20 4 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-	};
-
 	usdhc3_pwrseq: usdhc3-pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		reset-gpios = <&i2c3_ioexp23 16 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
@@ -427,6 +389,30 @@
 		can_power_en: can-power-en {
 			gpio-hog;
 			gpios = <7 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+
+		can1_en: can1-en {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+
+		can1_stb_n: can1-stb-n {
+			gpio-hog;
+			gpios = <1 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+
+		can2_en: can2-en {
+			gpio-hog;
+			gpios = <2 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
+
+		can2_stb_n: can2-stb-n {
+			gpio-hog;
+			gpios = <3 GPIO_ACTIVE_HIGH>;
 			output-high;
 		};
 
@@ -830,16 +816,10 @@
 };
 
 &flexcan2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_flexcan2>;
-	xceiver-supply = <&reg_can2_stby>;
 	status = "disabled";
 };
 
 &flexcan3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_flexcan3>;
-	xceiver-supply = <&reg_can3_stby>;
 	status = "disabled";
 };
 
