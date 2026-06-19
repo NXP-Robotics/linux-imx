@@ -833,7 +833,7 @@
 			};
 		};
 
-		p3h_gpio: smbus@2 {
+		p3h_gpio: gpio@2 {
 			reg = <0x2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
