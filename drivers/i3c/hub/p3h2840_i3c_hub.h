@@ -233,6 +233,27 @@
 #define P3H2X4X_SMBUS_400KHZ					BIT(2)
 #define P3H2X4X_SMBUS_1MHZ					(BIT(2) | BIT(1))
 
+/*
+ * Descriptor byte 1 bits [3:4]: enable P3H built-in stuck-SDA recovery.
+ * When set, the SMBus controller detects SDA stuck LOW and automatically
+ * issues 9 SCL pulses; if still stuck, drives SCL LOW for up to 35 ms.
+ * On completion the status register reports SYNC_RCVCLR (code 5).
+ * This is disruptive to every device on the port, so we arm it only after
+ * the bus stays stuck across several consecutive transactions.
+ */
+#define P3H2X4X_SMBUS_SDA_STUCK_DETECT			BIT(3)
+#define P3H2X4X_SMBUS_SCL_TIMEOUT_CLEAR			BIT(4)
+#define P3H2X4X_SMBUS_BUS_RECOVERY	(P3H2X4X_SMBUS_SDA_STUCK_DETECT | \
+					 P3H2X4X_SMBUS_SCL_TIMEOUT_CLEAR)
+/* Maximum time for SCL LOW recovery phase (35 ms + margin) */
+#define P3H2X4X_SMBUS_SCL_RECOVERY_TIMEOUT_US		40000
+/* Consecutive stuck-SDA samples before arming hardware recovery. */
+#define P3H2X4X_SMBUS_STUCK_ARM				2
+/* Stuck samples after which the bus is declared wedged (-EIO). */
+#define P3H2X4X_SMBUS_STUCK_MAX				4
+/* Mirror the give-up count into the adapter's automatic retry budget. */
+#define P3H2X4X_SMBUS_RETRIES				P3H2X4X_SMBUS_STUCK_MAX
+
 /* SMBus polling */
 #define P3H2X4X_POLLING_ROLL_PERIOD_MS				10
 
@@ -293,6 +314,7 @@ struct tp_bus {
 	bool is_registered;	    /* bus was registered in the framework. */
 	u8 tp_mask;
 	u8 tp_port;
+	u8 stuck_count;		    /* consecutive stuck-SDA samples, 0 = healthy */
 	u32 bus_clk_rate;	    /* I2C clock rate in Hz; 0 = use default (400kHz) */
 	struct mutex port_mutex;      /* per port mutex */
 	struct device_node *of_node;

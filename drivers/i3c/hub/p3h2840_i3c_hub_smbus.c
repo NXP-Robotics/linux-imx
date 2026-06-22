@@ -162,11 +162,39 @@ void p3h2x4x_ibi_handler(struct i3c_device *i3cdev,
 	}
 }
 
+/*
+ * Called after hardware bus recovery (SYNC_RCVCLR) to check if SDA was freed.
+ * Register 0x61 is global so it is safe to read with PAGE_PTR set for a port.
+ */
+static int p3h2x4x_smbus_recovery_result(struct p3h2x4x_i3c_hub_dev *hub, u8 port)
+{
+	u32 sda_level;
+	int ret;
+
+	ret = regmap_read(hub->regmap, P3H2X4X_TP_SDA_IN_LEVEL_STS, &sda_level);
+	if (ret)
+		return ret;
+
+	if (sda_level & BIT(port))
+		return -EAGAIN;	/* SDA free; retry the transaction */
+
+	dev_warn_ratelimited(hub->dev, "tp%u: bus recovery failed, SDA still stuck\n", port);
+	return -EIO;
+}
+
+/* Descriptor recovery bits: armed only after the bus has stayed stuck. */
+static u8 p3h2x4x_recovery_bits(struct p3h2x4x_i3c_hub_dev *hub, u8 port)
+{
+	return hub->tp_bus[port].stuck_count >= P3H2X4X_SMBUS_STUCK_ARM ?
+	       P3H2X4X_SMBUS_BUS_RECOVERY : 0;
+}
+
 static int p3h2x4x_read_smbus_transaction_status(struct p3h2x4x_i3c_hub_dev *hub,
 						 u8 target_port_status,
 						 u8 data_length,
 						 u32 clk_rate)
 {
+	u8 port = target_port_status - P3H2X4X_TP0_SMBUS_AGNT_STS;
 	u32 status_read;
 	u8 status;
 	int ret;
@@ -181,6 +209,25 @@ static int p3h2x4x_read_smbus_transaction_status(struct p3h2x4x_i3c_hub_dev *hub
 	ret = regmap_read(hub->regmap, target_port_status, &status_read);
 	if (ret)
 		return ret;
+
+	/*
+	 * TRANSACTION_FINISH_FLAG is set when the agent finishes or aborts.
+	 * If clear after the timeout, the agent never started — SDA was low
+	 * so it refused to issue a START, leaving the status at TXN_OK (0).
+	 * Without this check that would be a silent false-success.
+	 *
+	 * A single stuck sample is usually a slave finishing a byte; debounce
+	 * by retrying. Only a wedged bus (STUCK_MAX) gives up; the descriptor
+	 * for those retries arms hardware recovery (p3h2x4x_recovery_bits).
+	 */
+	if (!(status_read & P3H2X4X_SMBUS_TRANSACTION_FINISH_FLAG)) {
+		if (++hub->tp_bus[port].stuck_count > P3H2X4X_SMBUS_STUCK_MAX) {
+			dev_warn_ratelimited(hub->dev, "tp%u: SDA wedged low, giving up\n", port);
+			return -EIO;
+		}
+		return -EAGAIN;
+	}
+	hub->tp_bus[port].stuck_count = 0;
 
 	status = (u8)status_read;
 
@@ -198,6 +245,20 @@ static int p3h2x4x_read_smbus_transaction_status(struct p3h2x4x_i3c_hub_dev *hub
 		return -ETIMEDOUT;
 	case P3H2X4X_SMBUS_CNTRL_STATUS_TXN_ARB_LOSS:
 		return -EAGAIN;
+	case P3H2X4X_SMBUS_CNTRL_STATUS_TXN_SYNC_RCV:
+		/* Recovery (9 SCL pulses) in progress; wait, then check it finished. */
+		fsleep(P3H2X4X_SMBUS_SCL_RECOVERY_TIMEOUT_US);
+		ret = regmap_read(hub->regmap, target_port_status, &status_read);
+		if (ret)
+			return ret;
+		status = ((u8)status_read & P3H2X4X_TP_TRANSACTION_CODE_MASK)
+			  >> P3H2X4X_SMBUS_CNTRL_STATUS_TXN_SHIFT;
+		if (status != P3H2X4X_SMBUS_CNTRL_STATUS_TXN_SYNC_RCVCLR)
+			return -EIO;
+		fallthrough;
+	case P3H2X4X_SMBUS_CNTRL_STATUS_TXN_SYNC_RCVCLR:
+		/* Recovery sequence done; check if SDA is actually free now. */
+		return p3h2x4x_smbus_recovery_result(hub, port);
 	default:
 		return -EIO;
 	}
@@ -216,7 +277,7 @@ static int p3h2x4x_tp_smbus_one(struct p3h2x4x_i3c_hub_dev *p3h2x4x_i3c_hub,
 	int ret, ret2;
 
 	desc[P3H2X4X_DESC_ADDR] = rw_address;
-	desc[P3H2X4X_DESC_TYPE] = type | speed_type;
+	desc[P3H2X4X_DESC_TYPE] = type | speed_type | p3h2x4x_recovery_bits(p3h2x4x_i3c_hub, target_port);
 	desc[P3H2X4X_DESC_WRITE_LEN] = wlen;
 	desc[P3H2X4X_DESC_READ_LEN] = rlen;
 
@@ -473,7 +534,7 @@ static int p3h2x4x_tp_smbus_xfer_msg(struct p3h2x4x_i3c_hub_dev *hub,
 	}
 
 	desc[0] = rw_address;
-	desc[1] = txn_type;
+	desc[1] = txn_type | p3h2x4x_recovery_bits(hub, target_port);
 	desc[2] = write_length;
 	desc[3] = read_length;
 
@@ -648,6 +709,7 @@ int p3h2x4x_tp_smbus_algo(struct p3h2x4x_i3c_hub_dev *hub)
 		smbus_adapter->algo = &p3h2x4x_tp_i2c_algorithm;
 		smbus_adapter->dev.parent = hub->dev;
 		smbus_adapter->dev.of_node = hub->tp_bus[tp].of_node;
+		smbus_adapter->retries = P3H2X4X_SMBUS_RETRIES;
 		snprintf(smbus_adapter->name, sizeof(smbus_adapter->name),
 			 "p3h2x4x-i3c-hub.tp-port-%d", tp);
 
