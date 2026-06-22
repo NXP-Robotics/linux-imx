@@ -852,6 +852,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
             nxp,pullup-enable;
+			clock-frequency = <100000>;
 		};
 
 		p3h_se_smbus: smbus@5 {

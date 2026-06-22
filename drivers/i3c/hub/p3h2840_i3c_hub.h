@@ -227,8 +227,11 @@
 #define P3H2X4X_TP_BUFFER_STATUS_MASK				0x0f
 #define P3H2X4X_TP_TRANSACTION_CODE_MASK			0xf0
 
-/* SMBus transaction types fields */
+/* SMBus transaction types fields — descriptor byte 1 bits [2:1] */
+#define P3H2X4X_SMBUS_100KHZ					0
+#define P3H2X4X_SMBUS_200KHZ					BIT(1)
 #define P3H2X4X_SMBUS_400KHZ					BIT(2)
+#define P3H2X4X_SMBUS_1MHZ					(BIT(2) | BIT(1))
 
 /* SMBus polling */
 #define P3H2X4X_POLLING_ROLL_PERIOD_MS				10
@@ -241,8 +244,7 @@
 		(P3H2X4X_CONTROLLER_BUFFER_SIZE - P3H2X4X_SMBUS_DESCRIPTOR_SIZE)
 #define P3H2X4X_SMBUS_TARGET_PAYLOAD_SIZE	(P3H2X4X_TARGET_BUFFER_SIZE - 2)
 
-/* Hub SMBus transaction time */
-#define P3H2X4X_SMBUS_400KHZ_TRANSFER_TIMEOUT(x)		((20 * (x)) + 80)
+/* Hub SMBus transaction time: see p3h2x4x_tp_timeout_us() */
 
 #define P3H2X4X_NO_PAGE_PER_TP					4
 
@@ -291,6 +293,7 @@ struct tp_bus {
 	bool is_registered;	    /* bus was registered in the framework. */
 	u8 tp_mask;
 	u8 tp_port;
+	u32 bus_clk_rate;	    /* I2C clock rate in Hz; 0 = use default (400kHz) */
 	struct mutex port_mutex;      /* per port mutex */
 	struct device_node *of_node;
 	struct i2c_client *tp_smbus_client;

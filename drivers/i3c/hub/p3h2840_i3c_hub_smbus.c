@@ -16,6 +16,25 @@ enum p3h2x4x_smbus_desc_idx {
 	P3H2X4X_DESC_READ_LEN,
 };
 
+/* Return P3H transaction-type speed bit for a given I2C clock rate.
+ * Supported: 100 kHz, 200 kHz, 400 kHz, 1 MHz. Snap to nearest neighbour. */
+static u8 p3h2x4x_tp_speed_type(u32 clk_rate)
+{
+	if (clk_rate > 700000)
+		return P3H2X4X_SMBUS_1MHZ;
+	if (clk_rate > 300000)
+		return P3H2X4X_SMBUS_400KHZ;
+	if (clk_rate > 150000)
+		return P3H2X4X_SMBUS_200KHZ;
+	return P3H2X4X_SMBUS_100KHZ;
+}
+
+/* SMBus transaction timeout: 8 clock bits per byte × 1e6/clk_rate µs, plus 4 bytes overhead. */
+static u32 p3h2x4x_tp_timeout_us(u32 clk_rate, u8 data_len)
+{
+	return 8000000U * (data_len + 4) / clk_rate;
+}
+
 static void p3h2x4x_read_smbus_agent_rx_buf(struct i3c_device *i3cdev, enum p3h2x4x_rcv_buf rfbuf,
 					    enum p3h2x4x_tp tp, bool is_of)
 {
@@ -145,7 +164,8 @@ void p3h2x4x_ibi_handler(struct i3c_device *i3cdev,
 
 static int p3h2x4x_read_smbus_transaction_status(struct p3h2x4x_i3c_hub_dev *hub,
 						 u8 target_port_status,
-						 u8 data_length)
+						 u8 data_length,
+						 u32 clk_rate)
 {
 	u32 status_read;
 	u8 status;
@@ -156,7 +176,7 @@ static int p3h2x4x_read_smbus_transaction_status(struct p3h2x4x_i3c_hub_dev *hub
 	 * PAGE_PTR; dropping it here lets the IBI handler or another agent
 	 * port repaginate and corrupt the readback.
 	 */
-	fsleep(P3H2X4X_SMBUS_400KHZ_TRANSFER_TIMEOUT(data_length));
+	fsleep(p3h2x4x_tp_timeout_us(clk_rate, data_length));
 
 	ret = regmap_read(hub->regmap, target_port_status, &status_read);
 	if (ret)
@@ -188,13 +208,15 @@ static int p3h2x4x_tp_smbus_one(struct p3h2x4x_i3c_hub_dev *p3h2x4x_i3c_hub,
 				u8 target_port, u8 rw_address, u8 type,
 				const u8 *wbuf, u8 wlen, u8 *rbuf, u8 rlen)
 {
+	u32 clk_rate = p3h2x4x_i3c_hub->tp_bus[target_port].bus_clk_rate;
+	u8 speed_type = p3h2x4x_tp_speed_type(clk_rate);
 	u8 controller_buffer_page = P3H2X4X_CONTROLLER_BUFFER_PAGE + 4 * target_port;
 	u8 target_port_status = P3H2X4X_TP0_SMBUS_AGNT_STS + target_port;
 	u8 desc[P3H2X4X_SMBUS_DESCRIPTOR_SIZE] = { 0 };
 	int ret, ret2;
 
 	desc[P3H2X4X_DESC_ADDR] = rw_address;
-	desc[P3H2X4X_DESC_TYPE] = type;
+	desc[P3H2X4X_DESC_TYPE] = type | speed_type;
 	desc[P3H2X4X_DESC_WRITE_LEN] = wlen;
 	desc[P3H2X4X_DESC_READ_LEN] = rlen;
 
@@ -225,7 +247,8 @@ static int p3h2x4x_tp_smbus_one(struct p3h2x4x_i3c_hub_dev *p3h2x4x_i3c_hub,
 		goto out;
 
 	ret = p3h2x4x_read_smbus_transaction_status(p3h2x4x_i3c_hub,
-						    target_port_status, wlen + rlen);
+						    target_port_status, wlen + rlen,
+						    clk_rate);
 	if (ret)
 		goto out;
 
@@ -244,7 +267,7 @@ static int p3h2x4x_tp_i2c_xfer_msg(struct p3h2x4x_i3c_hub_dev *p3h2x4x_i3c_hub,
 				   u8 target_port,
 				   u8 nxfers_i, u8 rw)
 {
-	u8 transaction_type = P3H2X4X_SMBUS_400KHZ;
+	u8 transaction_type = p3h2x4x_tp_speed_type(p3h2x4x_i3c_hub->tp_bus[target_port].bus_clk_rate);
 	u8 addr = xfers[nxfers_i].addr;
 	u8 rw_address = 2 * addr;
 	const u8 *wbuf = NULL;
@@ -359,7 +382,9 @@ static int p3h2x4x_tp_smbus_xfer_msg(struct p3h2x4x_i3c_hub_dev *hub,
 				     int sz,
 				     union i2c_smbus_data *data)
 {
-	u8 transaction_type = P3H2X4X_SMBUS_400KHZ;
+	u32 clk_rate = hub->tp_bus[target_port].bus_clk_rate;
+	u8 speed_type = p3h2x4x_tp_speed_type(clk_rate);
+	u8 txn_type = speed_type; /* accumulates speed + protocol-type flags (BIT(0) = read) */
 	u8 controller_buffer_page = P3H2X4X_CONTROLLER_BUFFER_PAGE + 4 * target_port;
 	u8 target_port_status = P3H2X4X_TP0_SMBUS_AGNT_STS + target_port;
 	u8 target_port_code = BIT(target_port);
@@ -389,7 +414,7 @@ static int p3h2x4x_tp_smbus_xfer_msg(struct p3h2x4x_i3c_hub_dev *hub,
 			buf[0] = cmd;
 			write_length = ONE_BYTE_SIZE;
 			read_length = ONE_BYTE_SIZE;
-			transaction_type |= BIT(0);
+			txn_type |= BIT(0);
 		} else {  /* only write */
 			buf[0] = cmd;
 			buf[1] = data->byte;
@@ -403,7 +428,7 @@ static int p3h2x4x_tp_smbus_xfer_msg(struct p3h2x4x_i3c_hub_dev *hub,
 			buf[0] = cmd;
 			write_length = ONE_BYTE_SIZE;
 			read_length = 2;
-			transaction_type |= BIT(0);
+			txn_type |= BIT(0);
 		} else {  /* only write */
 			buf[0] = cmd;
 			buf[1] = data->word & 0xff;
@@ -417,7 +442,7 @@ static int p3h2x4x_tp_smbus_xfer_msg(struct p3h2x4x_i3c_hub_dev *hub,
 			buf[0] = cmd;
 			write_length = ONE_BYTE_SIZE;
 			read_length = data->block[0] + 1;
-			transaction_type |= BIT(0);
+			txn_type |= BIT(0);
 		} else {  /* only write */
 			buf[0] = cmd;
 			for (i = 0 ; i <= data->block[0]; i++)
@@ -432,7 +457,7 @@ static int p3h2x4x_tp_smbus_xfer_msg(struct p3h2x4x_i3c_hub_dev *hub,
 			buf[0] = cmd;
 			write_length = ONE_BYTE_SIZE;
 			read_length = data->block[0];
-			transaction_type |= BIT(0);
+			txn_type |= BIT(0);
 		} else {  /* only write */
 			buf[0] = cmd;
 			for (i = 0 ; i < data->block[0]; i++)
@@ -448,7 +473,7 @@ static int p3h2x4x_tp_smbus_xfer_msg(struct p3h2x4x_i3c_hub_dev *hub,
 	}
 
 	desc[0] = rw_address;
-	desc[1] = transaction_type;
+	desc[1] = txn_type;
 	desc[2] = write_length;
 	desc[3] = read_length;
 
@@ -477,7 +502,8 @@ static int p3h2x4x_tp_smbus_xfer_msg(struct p3h2x4x_i3c_hub_dev *hub,
 		goto out_page;
 
 	ret = p3h2x4x_read_smbus_transaction_status(hub, target_port_status,
-						    write_length + read_length);
+						    write_length + read_length,
+						    clk_rate);
 	if (ret)
 		goto out_page;
 
@@ -626,6 +652,10 @@ int p3h2x4x_tp_smbus_algo(struct p3h2x4x_i3c_hub_dev *hub)
 			 "p3h2x4x-i3c-hub.tp-port-%d", tp);
 
 		i2c_set_adapdata(smbus_adapter, &hub->tp_bus[tp]);
+
+		hub->tp_bus[tp].bus_clk_rate = 400000;
+		of_property_read_u32(hub->tp_bus[tp].of_node, "clock-frequency",
+				     &hub->tp_bus[tp].bus_clk_rate);
 
 		/* Register adapter */
 		ret = i2c_add_adapter(smbus_adapter);
