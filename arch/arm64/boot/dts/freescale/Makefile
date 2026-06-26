@@ -1138,7 +1138,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-navqa-adacorsa.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqa-argos.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-display.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-display-5inch.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-display-7inch.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-sja1110-bin.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-lt8912b.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-sfp.dtb
