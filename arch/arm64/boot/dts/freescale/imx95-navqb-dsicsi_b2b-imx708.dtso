@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2026 NXP
+ *
+ * NavQ-B port B (CSI/DSI combo connector) in camera mode:
+ * Sony IMX708 on MIPI CSI1. Mutually exclusive with a display overlay.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/*
+ * The Raspberry Pi Camera Module 3 (IMX708) carries its own on-board
+ * 24 MHz oscillator, so model the sensor input clock as a fixed-clock
+ * rather than sourcing it from the SoC cam24m output.
+ */
+&{/} {
+	cam1_imx708_clk: cam1-imx708-clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		status = "okay";
+	};
+
+	cam1_reg: cam1_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "cam1_reg";
+		startup-delay-us = <70000>;
+		off-on-delay-us = <30000>;
+		regulator-min-microvolt = <2700000>;
+		regulator-max-microvolt = <2700000>;
+		enable-active-high;
+		gpio = <&p3h_hub 7 GPIO_ACTIVE_HIGH>;
+	};
+
+	cam1_dummy_reg: cam_dummy_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "cam-dummy-reg";
+	};
+};
+
+&p3h_i3c2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	cam1_imx708: imx708@1a {
+		compatible = "sony,imx708";
+		reg = <0x1a>;
+		clocks = <&cam1_imx708_clk>;
+		clock-names = "inclk";
+
+		vana1-supply = <&cam1_reg>;			/* 2.8v */
+		vana2-supply = <&cam1_dummy_reg>;	/* 1.8v */
+		vdig-supply = <&cam1_dummy_reg>;	/* 1.1v */
+		vddl-supply = <&cam1_dummy_reg>;	/* 1.8v */
+
+		lens-focus = <&cam1_vcm_node>;
+
+		rotation = <180>;
+		orientation = <2>;
+		status = "okay";
+
+		port {
+			cam1_sensor_ep: endpoint {
+				remote-endpoint = <&mipi_csi1_ep>;
+				data-lanes = <1 2>;
+				clock-lanes = <0>;
+				clock-noncontinous;
+				link-frequencies = /bits/ 64 <450000000>;
+			};
+		};
+	};
+
+	cam1_vcm_node: dw9817@c {
+		compatible = "dongwoon,dw9817-vcm";
+		reg = <0x0c>;
+		status = "okay";
+		VDD-supply = <&cam1_reg>;
+	};
+};
+
+#include "imx95-navqb-csi1-pipeline.dtsi"
