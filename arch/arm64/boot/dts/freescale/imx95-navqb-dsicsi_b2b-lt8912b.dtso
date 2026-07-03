@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
  * Copyright 2026 NXP
+ *
+ * NavQ-B port B (CSI/DSI combo connector) in display mode:
+ * Lontium LT8912B MIPI-DSI to HDMI bridge.
+ * Mutually exclusive with a port B camera overlay.
  */
 
-#include "imx95-navqb.dts"
+/dts-v1/;
+/plugin/;
 
-/ {
+#include <dt-bindings/gpio/gpio.h>
+#include "imx95-clock.h"
+
+&{/} {
 	hdmi-connector {
 		compatible = "hdmi-connector";
 		ddc-i2c-bus = <&p3h_i3c2c>;
@@ -92,4 +100,3 @@
 		status = "okay";
 	};
 };
-

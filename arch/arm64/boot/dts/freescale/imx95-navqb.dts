@@ -758,12 +758,20 @@
 	pinctrl-names = "default", "sleep";
 	status = "okay";
 
-    hub@70,236153000c2 {
+    p3h_hub: hub@70,236153000c2 {
 		compatible = "nxp,p3h2840";
 		reg = <0x70 0x236 0x3000c2>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 		assigned-address = <0x50>;
+
+		/*
+		 * Target ports placed in GPIO mode (gpio@N sub-nodes) are
+		 * exposed through a single gpiochip on this node.
+		 * Line map: offset 0-7 = TP0-7 SCL pin, 8-15 = TP0-7 SDA pin.
+		 */
+		gpio-controller;
+		#gpio-cells = <2>;
 
 		nxp,tp0145-pullup-ohms = <1000>;
 		nxp,tp2367-pullup-ohms = <1000>;
@@ -807,30 +815,16 @@
             nxp,pullup-enable;
 		};
 
+		/*
+		 * CAM connector 1 (port A) control bus -> MIPI CSI0.
+		 * The camera sensor node is supplied by a camera overlay
+		 * (imx95-navqb-cam0-*.dtbo).
+		 */
 		p3h_i3c2b: smbus@1 {
 			reg = <0x1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
             nxp,pullup-enable;
-
-			imx219: imx219@10 {
-				compatible = "sony,imx219";
-				reg = <0x10>;
-				clocks = <&cam24m>;
-				orientation = <2>;
-				status = "okay";
-
-				port {
-					imx219_mipi_0_ep: endpoint {
-						remote-endpoint = <&mipi_csi0_ep>;
-						data-lanes = <1 2>;
-						clock-lanes = <0>;
-						clock-noncontinous;
-						link-frequencies = /bits/ 64 <456000000>;
-
-					};
-				};
-			};
 		};
 
 		p3h_gpio: gpio@2 {
@@ -862,18 +856,22 @@
             nxp,pullup-enable;
 		};
 
-		p3h_cam1_io: smbus@6 {
+		p3h_cam1_io: gpio@6 {
 			reg = <0x6>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-            nxp,pullup-enable; /* HACK put in smbus to get a logic high level since GPIO still isn't supported yet */
+			/* TP6 in GPIO mode: SCL = line 6, SDA = line 14.
+			 * Used for CAM connector 1 (port A / csi0) reset/enable.
+			 */
 		};
 
-		p3h_cam2_io: smbus@7 {
+		p3h_cam2_io: gpio@7 {
 			reg = <0x7>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			nxp,pullup-enable; /* HACK put in smbus to get a logic high level since GPIO still isn't supported yet */
+			/* TP7 in GPIO mode: SCL = line 7, SDA = line 15.
+			 * Used for CAM connector 2 (port B / csi1) reset/enable.
+			 */
 		};
 	};
 };
@@ -1144,77 +1142,12 @@
 	assigned-clock-rates = <0>, <3000000000>, <333333333>;
 };
 
-&dphy_rx {
-	status = "okay";
-};
-
-&mipi_csi0 {
-	status = "okay";
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-			mipi_csi0_ep: endpoint {
-				remote-endpoint = <&imx219_mipi_0_ep>;
-				data-lanes = <1 2>;
-				clock-lanes = <0>;
-			};
-		};
-
-		port@1 {
-			reg = <1>;
-				mipi_csi0_out: endpoint {
-				remote-endpoint = <&formatter_0_in>;
-			};
-		};
-	};
-};
-
-&csi_pixel_formatter_0 {
-	status = "okay";
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@0 {
-			reg = <0>;
-
-			formatter_0_in: endpoint {
-				remote-endpoint = <&mipi_csi0_out>;
-			};
-		};
-
-		port@1 {
-			reg = <1>;
-
-			formatter_0_out: endpoint {
-				remote-endpoint = <&isi_in_2>;
-			};
-		};
-	};
-};
-
-&isi {
-	status = "okay";
-
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		port@2 {
-			reg = <2>;
-
-			isi_in_2: endpoint {
-				remote-endpoint = <&formatter_0_out>;
-			};
-		};
-	};
-};
-
+/*
+ * Camera capture pipelines (CSI0 / CSI1 -> formatter -> ISI) and the sensors
+ * themselves are provided by camera overlays (imx95-navqb-cam0-*.dtbo for
+ * port A, imx95-navqb-cam1-*.dtbo for port B). Port B is a CSI/DSI combo port,
+ * so a camera overlay there is mutually exclusive with a display overlay.
+ */
 
 &usb2 {
 	dr_mode = "host";

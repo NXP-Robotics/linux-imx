@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2026 NXP
+ *
+ * Shared MIPI CSI1 capture pipeline for NavQ-B port B (CSI/DSI combo 22-pin
+ * connector) used in camera mode: sensor -> combo-RX/CSI1 -> CSI pixel
+ * formatter 1 -> ISI port 3. A camera overlay includes this file and provides
+ * a "cam1_sensor_ep" endpoint on its sensor node.
+ *
+ * Note: this is mutually exclusive with a display overlay on port B, since the
+ * combo PHY drives either CSI1 (camera) or the MIPI DSI (display).
+ */
+
+&combo_rx {
+	status = "okay";
+};
+
+&mipi_csi1 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			mipi_csi1_ep: endpoint {
+				remote-endpoint = <&cam1_sensor_ep>;
+				data-lanes = <1 2>;
+				clock-lanes = <0>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			mipi_csi1_out: endpoint {
+				remote-endpoint = <&formatter_1_in>;
+			};
+		};
+	};
+};
+
+&csi_pixel_formatter_1 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			formatter_1_in: endpoint {
+				remote-endpoint = <&mipi_csi1_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			formatter_1_out: endpoint {
+				remote-endpoint = <&isi_in_3>;
+			};
+		};
+	};
+};
+
+&isi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@3 {
+			reg = <3>;
+			isi_in_3: endpoint {
+				remote-endpoint = <&formatter_1_out>;
+			};
+		};
+	};
+};

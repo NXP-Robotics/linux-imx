@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2026 NXP
+ *
+ * NavQ-B port A (camera-only connector): Sony IMX477 on MIPI CSI0.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&p3h_i3c2b {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	cam0_imx477: imx477@1a {
+		compatible = "sony,imx477";
+		reg = <0x1a>;
+		clocks = <&cam24m>;
+		/* CAM1 reset (XCLR) on P3H TP6 SCL line */
+		reset-gpios = <&p3h_hub 6 GPIO_ACTIVE_LOW>;
+		VANA-supply = <&reg_vana>;	/* 2.8V analog */
+		VDIG-supply = <&reg_vddl>;	/* core */
+		VDDL-supply = <&reg_cam>;	/* 1.8V IF */
+		orientation = <2>;
+		status = "okay";
+
+		port {
+			cam0_sensor_ep: endpoint {
+				remote-endpoint = <&mipi_csi0_ep>;
+				data-lanes = <1 2>;
+				clock-lanes = <0>;
+				clock-noncontinous;
+				link-frequencies = /bits/ 64 <450000000>;
+			};
+		};
+	};
+};
+
+#include "imx95-navqb-csi0-pipeline.dtsi"

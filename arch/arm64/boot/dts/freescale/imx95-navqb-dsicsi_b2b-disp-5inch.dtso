@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
  * Copyright 2026 NXP
+ *
+ * NavQ-B port B (CSI/DSI combo connector) in display mode:
+ * Raspberry Pi 5" DSI panel with GT911 touch.
+ * Mutually exclusive with a port B camera overlay.
  */
 
-#include "imx95-navqb.dts"
+/dts-v1/;
+/plugin/;
 
-/ {
+#include <dt-bindings/gpio/gpio.h>
+
+&{/} {
 	touch_reg: touch_reg {
 		compatible = "regulator-fixed";
 		regulator-name = "touch_reg_1";
@@ -30,7 +37,7 @@
 
 	dsi_panel: dsi_panel@0 {
 		reg = <0>;
-		compatible = "raspberrypi,dsi-7inch";
+		compatible = "raspberrypi,dsi-5inch";
 		reset-gpio = <&display_mcu 0 GPIO_ACTIVE_LOW>;
 		backlight = <&backlight>;
 		status = "okay";
@@ -72,7 +79,10 @@
 };
 
 &p3h_i3c2c {
-	display_mcu: display_mcu@45	{
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	display_mcu: display_mcu@45 {
 		compatible = "raspberrypi,touchscreen-panel-regulator-v2";
 		reg = <0x45>;
 		gpio-controller;
@@ -87,9 +97,8 @@
 		AVDD28-supply = <&touch_reg>;
 		touchscreen-size-x = <720>;
 		touchscreen-size-y = <1280>;
-		touchscreen-x-mm = <90>;
-		touchscreen-y-mm = <151>;
+		touchscreen-x-mm = <62>;
+		touchscreen-y-mm = <110>;
 		status = "okay";
 	};
-
 };

@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2026 NXP
+ *
+ * NavQ-B port A (camera-only connector): Sony IMX219 on MIPI CSI0.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&p3h_i3c2b {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	cam0_imx219: imx219@10 {
+		compatible = "sony,imx219";
+		reg = <0x10>;
+		clocks = <&cam24m>;
+		/*
+		 * CAM1 reset (XCLR) on P3H TP6 SCL line.
+		 * The imx219 driver drives this GPIO to logical 1 to release
+		 * the sensor from reset (see imx219_power_on()), so the line
+		 * must be declared ACTIVE_HIGH for XCLR to go physically high.
+		 */
+		reset-gpios = <&p3h_hub 6 GPIO_ACTIVE_HIGH>;
+		orientation = <2>;
+		status = "okay";
+
+		port {
+			cam0_sensor_ep: endpoint {
+				remote-endpoint = <&mipi_csi0_ep>;
+				data-lanes = <1 2>;
+				clock-lanes = <0>;
+				clock-noncontinous;
+				link-frequencies = /bits/ 64 <456000000>;
+			};
+		};
+	};
+};
+
+#include "imx95-navqb-csi0-pipeline.dtsi"

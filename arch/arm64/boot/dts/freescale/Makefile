@@ -1133,16 +1133,33 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin.dtb
 DTC_FLAGS_imx95-19x19-verdin-rpmsg := -@
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-rpmsg.dtb
 
-dtb-$(CONFIG_ARCH_MXC) += imx95-navqa.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx95-navqa-adacorsa.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx95-navqa-argos.dtb
-
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-display-5inch.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-display-7inch.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-sja1110-bin.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-lt8912b.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-sfp.dtb
+
+# NavQ-B swappable camera / display modules (device-tree overlays).
+# Named after the physical board-to-board connectors:
+#   csi_b2b    = port A, CSI-only connector          (SoC CSI0)
+#   dsicsi_b2b = port B, DSI/CSI combo connector      (SoC CSI1 or DSI)
+DTC_FLAGS_imx95-navqb := -@
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-csi_b2b-imx219.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-csi_b2b-imx477.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-csi_b2b-os08a20.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-imx219.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-imx477.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-os08a20.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-disp-5inch.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-disp-7inch.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-lt8912b.dtbo
+
+# Pre-fused convenience DTBs for the common module combinations. These also
+# make the kernel build validate that each overlay applies to the base.
+imx95-navqb-2x-imx219-dtbs := imx95-navqb.dtb \
+	imx95-navqb-csi_b2b-imx219.dtbo imx95-navqb-dsicsi_b2b-imx219.dtbo
+imx95-navqb-imx219-7inch-dtbs := imx95-navqb.dtb \
+	imx95-navqb-csi_b2b-imx219.dtbo imx95-navqb-dsicsi_b2b-disp-7inch.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-2x-imx219.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-imx219-7inch.dtb
 
 imx95-19x19-verdin-adv7535-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-adv7535.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-adv7535.dtb

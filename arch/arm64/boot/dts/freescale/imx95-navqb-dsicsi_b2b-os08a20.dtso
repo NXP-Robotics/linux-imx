@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2026 NXP
+ *
+ * NavQ-B port B (CSI/DSI combo 22-pin connector) in camera mode:
+ * OmniVision OS08A20 on MIPI CSI1 in 4-lane mode. Based on
+ * imx95-15x15-frdm-os08a20.dtso.
+ *
+ * Mutually exclusive with a port B display overlay: the combo PHY drives
+ * either CSI1 (camera) or the MIPI DSI (display).
+ *
+ * Reuses the shared imx95-navqb-csi1-pipeline.dtsi and just overrides the
+ * CSI1 receiver lane count to 4 (the 22-pin connector wires 4 CSI data lanes;
+ * the imx219/imx477 overlays use the pipeline's 2-lane default).
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&p3h_i3c2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	cam1_os08a20: os08a20@36 {
+		compatible = "ovti,os08a20";
+		reg = <0x36>;
+		clocks = <&dummy>;
+		/* CAM2 reset (XCLR) on P3H TP7 SCL line */
+		reset-gpios = <&p3h_hub 7 GPIO_ACTIVE_LOW>;
+		avdd-supply = <&reg_dummy>;	/* 2.8V analog */
+		dvdd-supply = <&reg_dummy>;	/* 1.8V digital I/O */
+		dovdd-supply = <&reg_dummy>;	/* 1.2V core */
+		orientation = <2>;
+		rotation = <0>;
+		status = "okay";
+
+		port {
+			cam1_sensor_ep: endpoint {
+				remote-endpoint = <&mipi_csi1_ep>;
+				data-lanes = <1 2 3 4>;
+				clock-lanes = <0>;
+			};
+		};
+	};
+};
+
+#include "imx95-navqb-csi1-pipeline.dtsi"
+
+/* OS08A20 uses all 4 lanes; override the pipeline's 2-lane default. */
+&mipi_csi1_ep {
+	data-lanes = <1 2 3 4>;
+};
