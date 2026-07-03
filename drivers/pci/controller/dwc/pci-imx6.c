@@ -198,6 +198,8 @@ struct imx_pcie {
 	u32			tx_swing_full;
 	u32			tx_swing_low;
 	struct regulator	*vph;
+	struct regulator	*vpcie;
+	bool			ep_power_cycle;
 	void __iomem		*phy_base;
 
 	/* LUT data for pcie */
@@ -987,6 +989,37 @@ static void imx_pcie_assert_core_reset(struct imx_pcie *imx_pcie)
 	gpiod_set_value_cansleep(imx_pcie->reset_gpiod, 1);
 }
 
+/*
+ * Power-cycle the downstream endpoint's supply. Must be called with PERST#
+ * already asserted (reset_gpiod = 1).
+ *
+ * Some endpoints latch into a bad state on a cold boot - typically when the
+ * bootloader leaves their supply enabled - so their receiver is never
+ * detected and the link never trains. They only recover after a fresh power
+ * cycle of their supply. Others additionally need a long, fixed settle time
+ * from supply-stable to PERST# de-assertion (e.g. on-board firmware that must
+ * boot first).
+ *
+ * Both requirements are expressed entirely in the supply regulator's DT
+ * properties, so no board-specific timing lives in this driver:
+ *   - "off-on-delay-us"  guarantees a clean minimum off time, and
+ *   - "startup-delay-us" holds here (with PERST# still asserted) until the
+ *     rail has been stable long enough for the endpoint to be ready.
+ * regulator_enable() blocks for both delays.
+ */
+static void imx_pcie_ep_power_cycle(struct imx_pcie *imx_pcie)
+{
+	struct device *dev = imx_pcie->pci->dev;
+
+	if (!imx_pcie->ep_power_cycle || !imx_pcie->vpcie)
+		return;
+
+	regulator_disable(imx_pcie->vpcie);
+	if (regulator_enable(imx_pcie->vpcie))
+		dev_err(dev, "failed to re-enable vpcie during power cycle\n");
+	dev_info(dev, "endpoint vpcie power-cycled\n");
+}
+
 static int imx_pcie_deassert_core_reset(struct imx_pcie *imx_pcie)
 {
 	reset_control_deassert(imx_pcie->pciephy_reset);
@@ -1336,6 +1369,13 @@ static int imx_pcie_host_init(struct dw_pcie_rp *pp)
 		imx_pcie->drvdata->init_pre_reset(imx_pcie);
 
 	imx_pcie_assert_core_reset(imx_pcie);
+
+	/*
+	 * PERST# is now asserted. Power-cycle the endpoint supply (no-op unless
+	 * the DT marks this port with "fsl,ep-power-cycle") so endpoints that
+	 * latch a bad state on cold boot present a clean receiver for training.
+	 */
+	imx_pcie_ep_power_cycle(imx_pcie);
 
 	if (imx_pcie->drvdata->init_phy)
 		imx_pcie->drvdata->init_phy(imx_pcie);
@@ -2034,14 +2074,30 @@ static int imx_pcie_probe(struct platform_device *pdev)
 	pci->max_link_speed = 1;
 	of_property_read_u32(node, "fsl,max-link-speed", &pci->max_link_speed);
 	imx_pcie->supports_clkreq = of_property_read_bool(node, "supports-clkreq");
+	imx_pcie->ep_power_cycle = of_property_read_bool(node, "fsl,ep-power-cycle");
 
 	ret = devm_regulator_get_enable_optional(&pdev->dev, "vpcie3v3aux");
 	if (ret < 0 && ret != -ENODEV)
 		return dev_err_probe(dev, ret, "failed to enable Vaux supply\n");
 
-	ret = devm_regulator_get_enable_optional(&pdev->dev, "vpcie");
-	if (ret < 0 && ret != -ENODEV)
-		return dev_err_probe(dev, ret, "failed to enable vpcie");
+	/*
+	 * Acquire the vpcie supply with an explicit handle (rather than the
+	 * "get_enable" helper) so the endpoint can be cleanly power-cycled
+	 * during host_init when the port is marked "fsl,ep-power-cycle". Some
+	 * endpoints latch into a bad state on a cold boot and only present a
+	 * valid receiver after a fresh power cycle of their supply.
+	 */
+	imx_pcie->vpcie = devm_regulator_get_optional(&pdev->dev, "vpcie");
+	if (IS_ERR(imx_pcie->vpcie)) {
+		if (PTR_ERR(imx_pcie->vpcie) != -ENODEV)
+			return dev_err_probe(dev, PTR_ERR(imx_pcie->vpcie),
+					     "failed to get vpcie\n");
+		imx_pcie->vpcie = NULL;
+	} else {
+		ret = regulator_enable(imx_pcie->vpcie);
+		if (ret)
+			return dev_err_probe(dev, ret, "failed to enable vpcie\n");
+	}
 
 	imx_pcie->vph = devm_regulator_get_optional(&pdev->dev, "vph");
 	if (IS_ERR(imx_pcie->vph)) {

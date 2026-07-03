@@ -240,7 +240,16 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&i2c3_ioexp23 0 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
 		enable-active-low;
-		regulator-always-on;
+		/*
+		 * This endpoint needs a clean power cycle and a long settle
+		 * before PERST# is de-asserted (see fsl,ep-power-cycle on the
+		 * PCIe port, which power-cycles this rail with PERST# held):
+		 *  - off-on-delay-us:  minimum off time during the power cycle.
+		 *  - startup-delay-us: supply-stable-to-ready time the endpoint
+		 *    needs after its 3.3V rail comes up.
+		 */
+		off-on-delay-us = <100000>;
+		startup-delay-us = <2300000>;
 	};
 
 	reg_pcie1: regulator-pcie1 {
@@ -1096,6 +1105,7 @@
 	pinctrl-0 = <&pinctrl_pcie0>;
 	pinctrl-names = "default";
 	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	fsl,ep-power-cycle;
 	reset-gpio = <&i2c3_ioexp23 1 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
 	vpcie-supply = <&reg_pcie0>;
 	status = "okay";
