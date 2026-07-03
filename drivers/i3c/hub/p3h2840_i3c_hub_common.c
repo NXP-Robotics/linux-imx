@@ -522,6 +522,13 @@ static int p3h2x4x_i3c_hub_probe(struct platform_device *pdev)
 	if (p3h2x4x_i3c_hub->gpio_mode_mask) {
 		p3h2x4x_i3c_hub->gpio.label = "p3h2x4x-gpio";
 		p3h2x4x_i3c_hub->gpio.parent = dev;
+		/*
+		 * The MFD child device carries no OF node; the hub's DT node
+		 * lives on the parent (i3c/i2c) device. Point the gpiochip at
+		 * that node so consumers can reference the controller by
+		 * phandle (e.g. camera reset-gpios).
+		 */
+		p3h2x4x_i3c_hub->gpio.fwnode = dev_fwnode(dev->parent);
 		p3h2x4x_i3c_hub->gpio.owner = THIS_MODULE;
 		p3h2x4x_i3c_hub->gpio.base = -1;
 		p3h2x4x_i3c_hub->gpio.ngpio = P3H2X4X_GPIO_COUNT;
