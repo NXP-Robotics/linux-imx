@@ -137,9 +137,17 @@ static int mmc_pwrseq_simple_probe(struct platform_device *pdev)
 	ngpio = of_count_phandle_with_args(dev->of_node, "reset-gpios", "#gpio-cells");
 	if (ngpio == 1) {
 		pwrseq->reset_ctrl = devm_reset_control_get_optional_shared(dev, NULL);
-		if (IS_ERR(pwrseq->reset_ctrl))
-			return dev_err_probe(dev, PTR_ERR(pwrseq->reset_ctrl),
-					     "reset control not ready\n");
+		if (IS_ERR(pwrseq->reset_ctrl)) {
+			/*
+			 * A single reset-gpios line that the reset-controller
+			 * core cannot wrap (e.g. an I2C GPIO expander line)
+			 * returns a hard error here. Honour deferral, but
+			 * otherwise fall back to the plain GPIO reset path.
+			 */
+			if (PTR_ERR(pwrseq->reset_ctrl) == -EPROBE_DEFER)
+				return -EPROBE_DEFER;
+			pwrseq->reset_ctrl = NULL;
+		}
 	}
 
 	/*
