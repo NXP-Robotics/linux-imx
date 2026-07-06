@@ -358,7 +358,7 @@ static const struct cci_reg_sequence os08a20_init_setting_hdr_en[] = {
 
 static int os08a20_enable_staggered_hdr(struct ox05b1s *sensor)
 {
-	int ret;
+	int ret = 0;
 
 	for (int i = 0; i < ARRAY_SIZE(os08a20_init_setting_hdr_en); i++) {
 		ret = cci_update_bits(sensor->regmap,
@@ -372,7 +372,7 @@ static int os08a20_enable_staggered_hdr(struct ox05b1s *sensor)
 
 static int os08a20_disable_staggered_hdr(struct ox05b1s *sensor)
 {
-	int ret;
+	int ret = 0;
 
 	for (int i = 0; i < ARRAY_SIZE(os08a20_init_setting_hdr_en); i++) {
 		ret = cci_update_bits(sensor->regmap,
@@ -472,7 +472,7 @@ static int ox05b1s_gh_start(struct ox05b1s *sensor, u8 group)
 static int ox05b1s_gh_end(struct ox05b1s *sensor, u8 group)
 {
 	struct regmap *regmap = sensor->regmap;
-	int ret;
+	int ret = 0;
 
 	switch (sensor->model->chip_id) {
 	case OX05B1S_CHIP_ID:
@@ -1408,7 +1408,7 @@ static int ox05b1s_apply_current_mode(struct ox05b1s *sensor)
 	const struct ox05b1s_reglist *reg_data = sensor->mode->reg_data;
 	u32 w = sensor->mode->width;
 	u32 h = sensor->mode->height;
-	int ret;
+	int ret = 0;
 
 	cci_write(sensor->regmap, OX05B1S_REG_SW_RST, 0x01, &ret);
 
