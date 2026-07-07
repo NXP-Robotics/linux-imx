@@ -511,6 +511,14 @@ static int imx_rproc_sm_lmm_stop(struct rproc *rproc)
 	return scmi_imx_lmm_operation(dcfg->lmid, SCMI_IMX_LMM_SHUTDOWN, 0);
 }
 
+/* Detach without stopping: remote keeps running, just drop the mbox. */
+static int imx_rproc_sm_detach(struct rproc *rproc)
+{
+	imx_rproc_free_mbox(rproc);
+
+	return 0;
+}
+
 static int imx_rproc_stop(struct rproc *rproc)
 {
 	struct imx_rproc *priv = rproc->priv;
@@ -1255,11 +1263,13 @@ static int imx_rproc_sm_detect_mode(struct rproc *rproc)
 	if (dcfg->lmid != info.lmid) {
 		priv->ops.start = &imx_rproc_sm_lmm_start;
 		priv->ops.stop = &imx_rproc_sm_lmm_stop;
+		priv->ops.detach = &imx_rproc_sm_detach;
 		priv->flags |= IMX_RPROC_FLAGS_SM_LMM_OP;
 		dev_info(dev, "Using LMM Protocol OPS\n");
 	} else {
 		priv->ops.start = &imx_rproc_sm_cpu_start;
 		priv->ops.stop = &imx_rproc_sm_cpu_stop;
+		priv->ops.detach = &imx_rproc_sm_detach;
 		priv->flags |= IMX_RPROC_FLAGS_SM_CPU_OP;
 		dev_info(dev, "Using CPU Protocol OPS\n");
 	}
