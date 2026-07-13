@@ -272,6 +272,36 @@
 		 memory-region = <&mali_protected>;
 	};
 
+	leds {
+		compatible = "gpio-leds";
+
+		led-red {
+			label = "red:status";
+			gpios = <&i2c4_ioexp20 11 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "panic";
+		};
+
+		led-green {
+			label = "green:status";
+			gpios = <&i2c4_ioexp20 12 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+
+		led-blue {
+			label = "blue:status";
+			gpios = <&i2c4_ioexp20 13 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "heartbeat";
+		};
+
+		sw-led {
+			label = "sw:status";
+			gpios = <&i2c4_ioexp20 14 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "timer";
+		};
+	};
 };
 
 &adc1 {
@@ -703,30 +733,6 @@
 			gpio-hog;
 			gpios = <10 GPIO_ACTIVE_LOW>;
 			input;
-		};
-
-		led_r: led-r {
-			gpio-hog;
-			gpios = <11 GPIO_ACTIVE_HIGH>;
-			output-low;
-		};
-
-		led_g: led-g {
-			gpio-hog;
-			gpios = <12 GPIO_ACTIVE_HIGH>;
-			output-high;
-		};
-
-		led_b: led-b {
-			gpio-hog;
-			gpios = <13 GPIO_ACTIVE_HIGH>;
-			output-high;
-		};
-
-		sw_led_out: sw-led-out {
-			gpio-hog;
-			gpios = <15 GPIO_ACTIVE_HIGH>;
-			output-high;
 		};
 	};
 };
