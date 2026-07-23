@@ -122,8 +122,8 @@ static void enetc4_pf_set_si_mac_hash_filter(struct enetc_hw *hw, int si,
 {
 	if (type == UC)
 		enetc4_pf_set_si_uc_hash_filter(hw, si, hash);
-	else
-		enetc4_pf_set_si_uc_hash_filter(hw, si, hash);
+	else if (type == MC)
+		enetc4_pf_set_si_mc_hash_filter(hw, si, hash);
 }
 
 static void enetc4_pf_set_loopback(struct net_device *ndev, bool en)
