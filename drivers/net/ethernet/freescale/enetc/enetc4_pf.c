@@ -2,6 +2,7 @@
 /* Copyright 2024-2025 NXP */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/fsl/enetc_mdio.h>
 #include <linux/fsl/netc_global.h>
 #include <linux/module.h>
@@ -2198,11 +2199,33 @@ static const struct pci_device_id enetc4_pf_id_table[] = {
 };
 MODULE_DEVICE_TABLE(pci, enetc4_pf_id_table);
 
+static void enetc4_pf_shutdown(struct pci_dev *pdev)
+{
+	struct enetc_si *si = pci_get_drvdata(pdev);
+	struct enetc_pf *pf;
+
+	if (is_enetc_proxy_pf(pdev))
+		return;
+
+	pf = enetc_si_priv(si);
+
+	/*
+	 * An orderly reboot skips .remove(), so SR-IOV stays up and VF SIs keep
+	 * decoding. Warn subscribed VFs (e.g. one owned by another AMP core) of
+	 * link-down while their SI can still receive it, then let them drain it.
+	 */
+	if (pf->num_vfs) {
+		enetc_pf_send_link_status_msg(pf, false);
+		mdelay(10);
+	}
+}
+
 static struct pci_driver enetc4_pf_driver = {
 	.name = KBUILD_MODNAME,
 	.id_table = enetc4_pf_id_table,
 	.probe = enetc4_pf_probe,
 	.remove = enetc4_pf_remove,
+	.shutdown = enetc4_pf_shutdown,
 	.driver.pm = pm_ptr(&enetc4_pf_pm_ops),
 #ifdef CONFIG_PCI_IOV
 	.sriov_configure = enetc_sriov_configure,
