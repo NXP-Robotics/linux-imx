@@ -1152,6 +1152,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-imx708.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-os08a20.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-disp-5inch.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-disp-7inch.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-disp-10inch.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-navqb-dsicsi_b2b-lt8912b.dtbo
 
 # Pre-fused convenience DTBs for the common module combinations. These also
