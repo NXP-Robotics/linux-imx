@@ -33,6 +33,15 @@ static const struct regmap_config rpi_panel_regmap_config = {
 	.val_bits = 8,
 	.max_register = REG_PWM,
 	.can_sleep = true,
+	/*
+	 * LCD_RESET (bit 0) and CTP_RESET (bit 1) share REG_POWERON, and this
+	 * MCU sits behind a slow/flaky I3C hub. gpio-regmap sets each reset
+	 * line with a read-modify-write; an uncached read that returns garbage
+	 * would clobber the other reset bit (intermittently re-asserting the
+	 * panel's LCD_RESET and blanking the display). Cache the register map
+	 * so RMWs use the last written value instead of a fragile bus read.
+	 */
+	.cache_type = REGCACHE_FLAT,
 };
 
 static int rpi_panel_v2_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,

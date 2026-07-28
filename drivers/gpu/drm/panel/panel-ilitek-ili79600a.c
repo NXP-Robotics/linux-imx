@@ -274,9 +274,11 @@ static int ili79600a_prepare(struct drm_panel *panel)
 	reset_time = ktime_get();
 	mipi_dsi_dcs_write(ili->dsi, MIPI_DCS_SOFT_RESET, NULL, 0);
 	/* Must wait 5ms from releasing RESX or s/w reset) before sending other
-	 * commands.
+	 * commands. fsleep() takes microseconds, so this must be 5000, not 5:
+	 * on fast DSI hosts (i.MX95) a 5us wait lets the init sequence race the
+	 * panel's reset state machine and intermittently blanks the display.
 	 */
-	fsleep(5);
+	fsleep(5000);
 
 	ret = ili->desc->init(ili);
 	if (ret < 0)
@@ -442,7 +444,8 @@ static void ili79600a_dsi_remove(struct mipi_dsi_device *dsi)
 static const struct ili79600a_desc rpi_10_1_inch_desc = {
 	.init = rpi_10_1_inch_init,
 	.mode = &rpi_10_1_inch_default_mode,
-	.mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE,
+	.mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
+		      MIPI_DSI_MODE_LPM,
 	.lanes = 4,
 };
 
