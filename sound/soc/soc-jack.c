@@ -16,6 +16,9 @@
 #include <linux/suspend.h>
 #include <trace/events/asoc.h>
 
+/* Default poll interval when a jack GPIO has no IRQ */
+#define SND_SOC_JACK_GPIO_POLL_MS	500
+
 /**
  * snd_soc_jack_report - Report the current status for a jack
  *
@@ -252,6 +255,11 @@ static void gpio_work(struct work_struct *work)
 
 	gpio = container_of(work, struct snd_soc_jack_gpio, work.work);
 	snd_soc_jack_gpio_detect(gpio);
+
+	/* re-arm when polling */
+	if (gpio->polling)
+		queue_delayed_work(system_power_efficient_wq, &gpio->work,
+				   msecs_to_jiffies(gpio->poll_interval_ms));
 }
 
 static int snd_soc_jack_pm_notifier(struct notifier_block *nb,
@@ -283,7 +291,8 @@ static void jack_free_gpios(struct snd_soc_jack *jack, int count,
 	for (i = 0; i < count; i++) {
 		gpiod_unexport(gpios[i].desc);
 		unregister_pm_notifier(&gpios[i].pm_notifier);
-		free_irq(gpiod_to_irq(gpios[i].desc), &gpios[i]);
+		if (!gpios[i].polling)
+			free_irq(gpiod_to_irq(gpios[i].desc), &gpios[i]);
 		cancel_delayed_work_sync(&gpios[i].work);
 		gpiod_put(gpios[i].desc);
 		gpios[i].jack = NULL;
@@ -352,6 +361,17 @@ got_gpio:
 		INIT_DELAYED_WORK(&gpios[i].work, gpio_work);
 		gpios[i].jack = jack;
 
+		/* No IRQ (e.g. codec GPIO expander)? poll instead of failing */
+		if (gpios[i].poll_interval_ms || gpiod_to_irq(gpios[i].desc) <= 0) {
+			gpios[i].polling = true;
+			if (!gpios[i].poll_interval_ms)
+				gpios[i].poll_interval_ms = SND_SOC_JACK_GPIO_POLL_MS;
+			dev_info(jack->card->dev,
+				 "ASoC: no IRQ for jack GPIO \"%s\", polling every %u ms\n",
+				 gpios[i].name, gpios[i].poll_interval_ms);
+			goto setup_notifier;
+		}
+
 		ret = request_any_context_irq(gpiod_to_irq(gpios[i].desc),
 					      gpio_handler,
 					      IRQF_SHARED |
@@ -370,6 +390,7 @@ got_gpio:
 					i, ret);
 		}
 
+setup_notifier:
 		/*
 		 * Register PM notifier so we do not miss state transitions
 		 * happening while system is asleep.

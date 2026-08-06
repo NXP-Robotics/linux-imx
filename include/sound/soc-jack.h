@@ -65,12 +65,15 @@ struct snd_soc_jack_gpio {
 	int invert;
 	int debounce_time;
 	bool wake;
+	/* ms between samples when the GPIO has no IRQ; 0 = interrupt-driven */
+	unsigned int poll_interval_ms;
 
 	/* private: */
 	struct snd_soc_jack *jack;
 	struct delayed_work work;
 	struct notifier_block pm_notifier;
 	struct gpio_desc *desc;
+	bool polling;
 
 	void *data;
 	/* public: */
