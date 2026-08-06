@@ -942,7 +942,17 @@ static int fsl_asoc_card_probe(struct platform_device *pdev)
 		codec_dai_name[0] = "wm8962";
 		priv->codec_priv[0].mclk_id = WM8962_SYSCLK_MCLK;
 		priv->codec_priv[0].fll_id = WM8962_SYSCLK_FLL;
-		priv->codec_priv[0].pll_id = WM8962_FLL;
+		/*
+		 * The FLL reference defaults to the external MCLK. Boards that
+		 * clock the codec from a crystal on its oscillator pins (no
+		 * MCLK supplied) must use the codec's internal oscillator as the
+		 * FLL reference instead, selected via the "fsl,codec-internal-osc"
+		 * property on the sound card node.
+		 */
+		if (of_property_read_bool(np, "fsl,codec-internal-osc"))
+			priv->codec_priv[0].pll_id = WM8962_FLL_OSC;
+		else
+			priv->codec_priv[0].pll_id = WM8962_FLL;
 		priv->codec_priv[0].pll_ratio_s24 = 384;
 		priv->dai_fmt |= SND_SOC_DAIFMT_CBP_CFP;
 		priv->card_type = CARD_WM8962;
