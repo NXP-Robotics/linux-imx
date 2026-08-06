@@ -81,6 +81,7 @@ struct wm8962_priv {
 
 #ifdef CONFIG_GPIOLIB
 	struct gpio_chip gpio_chip;
+	bool gpio_input_pm;
 #endif
 
 	int irq;
@@ -3478,10 +3479,66 @@ static int wm8962_gpio_direction_out(struct gpio_chip *chip,
 	return 0;
 }
 
+static int wm8962_gpio_direction_in(struct gpio_chip *chip, unsigned int offset)
+{
+	struct wm8962_priv *wm8962 = gpiochip_get_data(chip);
+	struct snd_soc_component *component = wm8962->component;
+	int ret;
+
+	/* Only GPIO5/GPIO6 have a direction bit and can be inputs (GPIO5 = HP_JD) */
+	if (offset != 4 && offset != 5)
+		return -EINVAL;
+
+	/* Reading the live pin needs the control interface powered */
+	if (!wm8962->gpio_input_pm) {
+		pm_runtime_get_sync(component->dev);
+		wm8962->gpio_input_pm = true;
+	}
+
+	ret = snd_soc_component_update_bits(component,
+			WM8962_GPIO_BASE + offset,
+			WM8962_GP5_FN_MASK | WM8962_GP5_DIR,
+			(WM8962_GPIO_FN_LOGIC << WM8962_GP5_FN_SHIFT) |
+			WM8962_GP5_DIR);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static void wm8962_gpio_free(struct gpio_chip *chip, unsigned int offset)
+{
+	struct wm8962_priv *wm8962 = gpiochip_get_data(chip);
+
+	if ((offset == 4 || offset == 5) && wm8962->gpio_input_pm) {
+		pm_runtime_put(wm8962->component->dev);
+		wm8962->gpio_input_pm = false;
+	}
+}
+
+static int wm8962_gpio_get(struct gpio_chip *chip, unsigned int offset)
+{
+	struct wm8962_priv *wm8962 = gpiochip_get_data(chip);
+	unsigned int val;
+	int ret;
+
+	/* level bit shares a register with cached config, so bypass the cache */
+	regcache_cache_bypass(wm8962->regmap, true);
+	ret = regmap_read(wm8962->regmap, WM8962_GPIO_BASE + offset, &val);
+	regcache_cache_bypass(wm8962->regmap, false);
+	if (ret < 0)
+		return ret;
+
+	return !!(val & WM8962_GP2_LVL);
+}
+
 static const struct gpio_chip wm8962_template_chip = {
 	.label			= "wm8962",
 	.owner			= THIS_MODULE,
 	.request		= wm8962_gpio_request,
+	.free			= wm8962_gpio_free,
+	.direction_input	= wm8962_gpio_direction_in,
+	.get			= wm8962_gpio_get,
 	.direction_output	= wm8962_gpio_direction_out,
 	.set			= wm8962_gpio_set,
 	.can_sleep		= 1,
