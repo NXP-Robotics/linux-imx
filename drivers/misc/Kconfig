@@ -661,4 +661,16 @@ source "drivers/misc/mchp_pci1xxxx/Kconfig"
 source "drivers/misc/keba/Kconfig"
 source "drivers/misc/amd-sbi/Kconfig"
 source "drivers/misc/rp1/Kconfig"
+config KPAGE_NCACHE
+	tristate "NXP non-cacheable page mapping helper"
+	depends on ARM64
+	help
+	  Misc character device that lets user space mark selected page
+	  mappings as non-cacheable through an ioctl. The NXP DPDK data path
+	  (for example the Holoscan Sensor Bridge demo) uses it to expose
+	  hugepage buffers to hardware without cache coherency issues.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called kpage_ncache.
+
 endmenu

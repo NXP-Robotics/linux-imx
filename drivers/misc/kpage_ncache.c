@@ -1,0 +1,259 @@
+/* SPDX-License-Identifier: GPL-2.0
+ *
+ *   Copyright 2023-2026 NXP
+ *
+ */
+
+#include <linux/version.h>
+#include <linux/mm.h>
+#include <linux/mm_types.h>
+#include <asm/uaccess.h>
+#include <asm/io.h>
+#include <linux/fs.h>
+#include <linux/module.h>
+#include <linux/miscdevice.h>
+#include <asm/tlbflush.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+#include <linux/mm_types.h>
+#endif
+#include "kpage_ncache.h"
+
+
+#ifdef pr_fmt
+#undef pr_fmt
+#endif
+#define pr_fmt(fmt) "[kpg_nc] " fmt
+
+bool TKT340553_SW_WORKAROUND = 1;
+static int mair_idx;
+static bool dev_open = false;
+
+/* Page Table levels */
+static pgd_t *pgd;
+static p4d_t *p4d;
+static pud_t *pud;
+static pmd_t *pmd;
+
+typedef struct tlb_info {
+	struct vm_area_struct* vma;
+	unsigned long pg_addr;
+} tlb_info_t;
+
+#if defined(CONFIG_ARM64)
+static inline unsigned long kpg_nc_tlbi_vaddr(unsigned long addr,
+                                              unsigned long asid)
+{
+        unsigned long ta = addr >> 12;
+
+        ta &= GENMASK_ULL(43, 0);
+        ta |= asid << 48;
+        return ta;
+}
+
+static inline void kpg_nc_tlbi_user_vale1is(unsigned long addr)
+{
+        if (arm64_kernel_unmapped_at_el0())
+                __tlbi(vale1is, addr | USER_ASID_FLAG);
+}
+
+static inline void __tlb_flush_page_local(struct mm_struct *mm,
+                                          unsigned long uaddr)
+{
+        unsigned long addr;
+
+        dsb(ishst);
+        addr = kpg_nc_tlbi_vaddr(uaddr, ASID(mm));
+        __tlbi(vale1is, addr);
+        kpg_nc_tlbi_user_vale1is(addr);
+        dsb(ish);
+        isb();
+}
+#else
+static inline void __tlb_flush_page_local(struct mm_struct *mm,
+                                          unsigned long uaddr)
+{
+        (void)mm;
+        (void)uaddr;
+}
+#endif
+
+static int
+kpg_nc_dev_open(struct inode *inode, struct file *file)
+{
+	/* Device busy? */
+	if (dev_open)
+		return -EBUSY;
+
+	dev_open = 1;
+	return 0;
+}
+
+static int
+kpg_nc_dev_release(struct inode *inode, struct file *file)
+{
+	/* Reset device */
+	dev_open = 0;
+	return 0;
+}
+
+static void
+tlb_update(void *info)
+{
+	tlb_info_t *data = (tlb_info_t *)info;
+
+	__tlb_flush_page_local(data->vma->vm_mm, data->pg_addr);
+}
+
+static int
+kpg_nc_ioctl(struct file *file, unsigned int ioctl_num, unsigned long ioctl_param)
+{
+	switch (ioctl_num) {
+	case KPG_NC_IOCTL_UPDATE:
+		{
+			size_t pg_addr = 0;
+			struct task_struct *task;
+			struct vm_area_struct *vma;
+			tlb_info_t info;
+			struct mm_struct *md;
+			pmd_t pmd_val;
+			int attr_idx;
+
+			pr_debug("Got IOCTL KPG_NC_IOCTL_UPDATE\n");
+			if (raw_copy_from_user(&pg_addr, (void *)ioctl_param, sizeof(pg_addr)))
+				return -1;
+			if (!pg_addr) {
+				pr_err("Invalid page addr\n");
+				return -1;
+			}
+			/* Get Memory Descriptor */
+			task = current;
+			if (task->mm)
+				md = task->mm;
+			else
+				md = task->active_mm;
+			if(!md){
+				pr_err("Memory Descriptor for current process not found.\n");
+				return -1;
+			}
+			mmap_write_lock(md);
+			pgd = pgd_offset(md, pg_addr);
+			p4d = p4d_offset(pgd, pg_addr);
+			pud = pud_offset(p4d, pg_addr);
+			pmd = pmd_offset(pud, pg_addr);
+
+			pmd_val.pmd = pmd->pmd;
+			pr_debug("-----------------------------\n");
+			pr_debug("Page addr: 0x%lX\n", pg_addr);
+			pr_debug("PGD = 0x%lX\n", (size_t)pgd->pgd);
+			pr_debug("PUD = 0x%lX\n", (size_t)pud->pud);
+			pr_debug("PMD = 0x%lX\n", (size_t)pmd->pmd);
+			pr_debug("-----------------------------\n");
+			attr_idx = (int)(pmd_val.pmd >> 2) & 7;
+			pr_debug("Current: PMD = 0x%lX, MAIRi = %d\n",
+				(size_t)pmd_val.pmd, attr_idx);
+
+			/* Apply new attribute */
+			if (attr_idx != mair_idx) {
+				pmd_val.pmd &= ~0x1c;
+				pmd_val.pmd |= (mair_idx & 7) << 2;
+				set_pmd(pmd, pmd_val);
+				pr_debug("Updated: PMD = 0x%lX, MAIRi = %d\n",
+					(size_t)pmd_val.pmd, (int)(pmd_val.pmd >> 2) & 7);
+
+				/* Invalidate TLB for each CPU */
+				vma = find_vma(md, pg_addr);
+				if (vma == NULL) {
+					pr_err("Invalid VMA: Not able to invalidate TLB.\n");
+					mmap_write_unlock(md);
+					return -1;
+				}
+				info.vma = vma;
+				info.pg_addr = pg_addr;
+				on_each_cpu(tlb_update, &info, 1);
+			} else
+				pr_debug("Page is already non-cacheable\n");
+
+			mmap_write_unlock(md);
+
+			return 0;
+		}
+	default:
+		pr_warn("Unsupported IOCTL 0x%X num\n", ioctl_num);
+		return -1;
+}
+
+	return 0;
+}
+
+static const struct file_operations kpg_nc_fops = {
+	.owner = THIS_MODULE,
+	.open = kpg_nc_dev_open,
+	.release = kpg_nc_dev_release,
+	.unlocked_ioctl = (void *)kpg_nc_ioctl,
+	.compat_ioctl = NULL,
+};
+
+static struct miscdevice kpg_nc_dev = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = KPG_NC_DEVICE_NAME,
+	.fops = &kpg_nc_fops,
+};
+
+
+static int
+__init kpg_nc_init(void)
+{
+	int ret;
+#if defined(CONFIG_ARM64)
+	uint64_t mair;
+	int i, attr;
+#endif
+
+	/* Register device */
+	ret = misc_register(&kpg_nc_dev);
+	if (ret != 0) {
+		pr_err("Failed registering device with %d\n", ret);
+		return -ENXIO;
+	}
+
+#if defined(CONFIG_ARM64)
+#define NC_MASK 0x44
+	/* Get supported Memory Attributes */
+	asm volatile ("mrs %0, mair_el1\n" : "=r"(mair));
+	pr_debug("MAIR = 0x%llX\n", mair);
+	/* check for NC attribute */
+	for (i = 0; i < 8; i++) {
+		attr = (int)(mair >> (i * 8)) & 0xFF;
+		if ((attr & NC_MASK) == NC_MASK)
+			mair_idx = i;
+
+		pr_debug("ATTR-%d = 0x%02X\n", i, attr);
+	}
+#endif
+
+	if (mair_idx)
+		pr_debug("NC attribute found at %d\n", mair_idx);
+	else{
+		pr_err("NC attribute not found\n");
+		return -EEXIST;
+	}
+
+	pr_info("Successfully loaded.\n");
+	return 0;
+}
+
+static void
+__exit kpg_nc_exit(void)
+{
+	misc_deregister(&kpg_nc_dev);
+
+	pr_info("Unloaded\n");
+}
+
+module_init(kpg_nc_init);
+module_exit(kpg_nc_exit);
+
+MODULE_LICENSE("Dual BSD/GPL");
+MODULE_AUTHOR("Sachin Saxena");
+MODULE_DESCRIPTION("Update a page mapping to Non-cacheable");
