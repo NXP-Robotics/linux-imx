@@ -832,12 +832,18 @@ static void set_queue_coherency(struct vb2_queue *q, bool non_coherent_mem)
 
 	if (!vb2_queue_allows_cache_hints(q))
 		return;
-	q->non_coherent_mem = non_coherent_mem;
+	/*
+	 * A driver may force the non-coherent (cacheable + dma_sync) model on
+	 * a queue independently of the user-space hint. This lets CPU readers
+	 * get cacheable mappings on non-coherent ARM64 without a user-space
+	 * REQBUFS flag change.
+	 */
+	q->non_coherent_mem = non_coherent_mem || q->force_non_coherent;
 }
 
 static bool verify_coherency_flags(struct vb2_queue *q, bool non_coherent_mem)
 {
-	if (non_coherent_mem != q->non_coherent_mem) {
+	if ((non_coherent_mem || q->force_non_coherent) != q->non_coherent_mem) {
 		dprintk(q, 1, "memory coherency model mismatch\n");
 		return false;
 	}

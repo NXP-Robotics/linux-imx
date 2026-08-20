@@ -2,6 +2,7 @@
  * videobuf2-dma-contig.c - DMA contig memory allocator for videobuf2
  *
  * Copyright (C) 2010 Samsung Electronics
+ * Copyright 2026 NXP
  *
  * Author: Pawel Osciak <pawel@osciak.com>
  *
@@ -272,36 +273,95 @@ static void *vb2_dc_alloc(struct vb2_buffer *vb,
 	return buf;
 }
 
+/*
+ * vb2_dc_mmap - Map a DMA-contig buffer into user space.
+ *
+ * For non-coherent queues (q->non_coherent_mem == 1, buffers allocated with
+ * dma_alloc_noncontiguous()): the buffer is backed by real, cacheable struct
+ * pages. Map it cacheable so CPU readers (e.g. a per-frame memcpy) run at
+ * cache-fill bandwidth instead of the ~150 MB/s of a Device/write-combine
+ * mapping on non-coherent ARM64. Coherency is maintained automatically by the
+ * DMA API via vb2_dc_prepare() (dma_sync_for_device at QBUF) and
+ * vb2_dc_finish() (dma_sync_for_cpu at DQBUF); ARM64 d-caches are PIPT, so the
+ * invalidate reaches this user mapping too. The struct-page backed sg_table is
+ * exported unchanged (vb2_dc_get_base_sgt returns buf->dma_sgt), so the buffer
+ * stays cleanly DMABUF-importable into a second device.
+ *
+ * For coherent queues: use the standard dma_mmap_attrs() path (honours the
+ * device's DMA protection). This is the unmodified upstream behaviour and
+ * keeps such buffers importable/normal.
+ */
 static int vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
 {
 	struct vb2_dc_buf *buf = buf_priv;
+	unsigned long size;
 	int ret;
 
 	if (!buf) {
-		printk(KERN_ERR "No buffer to map\n");
+		pr_err("vb2_dc_mmap: No buffer to map\n");
 		return -EINVAL;
 	}
 
-	if (buf->non_coherent_mem)
-		ret = dma_mmap_noncontiguous(buf->dev, vma, buf->size,
-					     buf->dma_sgt);
-	else
+	size = vma->vm_end - vma->vm_start;
+	if (size > buf->size) {
+		dev_err(buf->dev, "Requested size %lu exceeds buffer size %lu\n",
+			size, buf->size);
+		return -EINVAL;
+	}
+
+	if (buf->non_coherent_mem) {
+		/*
+		 * Cacheable mapping of the sg-backed, non-coherent buffer.
+		 * Remap each physically contiguous segment; on i.MX95 (SMMU in
+		 * passthrough) the CMA allocation is a single segment, so this
+		 * is O(1). page_to_pfn(sg_page()) yields the true PFN (never a
+		 * device IOVA).
+		 */
+		struct sg_table *sgt = buf->dma_sgt;
+		struct scatterlist *sg;
+		unsigned long uaddr = vma->vm_start;
+		unsigned long remaining = size;
+		int i;
+
+		vma->vm_page_prot = pgprot_cached(vma->vm_page_prot);
+
+		for_each_sgtable_sg(sgt, sg, i) {
+			unsigned long len = min_t(unsigned long,
+						  PAGE_ALIGN(sg->length),
+						  remaining);
+			unsigned long pfn = page_to_pfn(sg_page(sg));
+
+			ret = remap_pfn_range(vma, uaddr, pfn, len,
+					      vma->vm_page_prot);
+			if (ret) {
+				dev_err(buf->dev,
+					"remap_pfn_range sg[%d] failed: %d\n",
+					i, ret);
+				return ret;
+			}
+			uaddr += len;
+			remaining -= len;
+			if (!remaining)
+				break;
+		}
+	} else {
 		ret = dma_mmap_attrs(buf->dev, vma, buf->cookie, buf->dma_addr,
 				     buf->size, buf->attrs);
-	if (ret) {
-		pr_err("Remapping memory failed, error: %d\n", ret);
-		return ret;
+		if (ret) {
+			pr_err("Remapping memory failed, error: %d\n", ret);
+			return ret;
+		}
 	}
 
 	vm_flags_set(vma, VM_DONTEXPAND | VM_DONTDUMP);
-	vma->vm_private_data	= &buf->handler;
-	vma->vm_ops		= &vb2_common_vm_ops;
+	vma->vm_private_data = &buf->handler;
+	vma->vm_ops = &vb2_common_vm_ops;
 
-	vma->vm_ops->open(vma);
+	if (vma->vm_ops && vma->vm_ops->open)
+		vma->vm_ops->open(vma);
 
-	pr_debug("%s: mapped dma addr 0x%08lx at 0x%08lx, size %lu\n",
-		 __func__, (unsigned long)buf->dma_addr, vma->vm_start,
-		 buf->size);
+	dev_dbg(buf->dev, "mapped buffer %lu bytes at %#lx (%scoherent)\n",
+		size, vma->vm_start, buf->non_coherent_mem ? "non-" : "");
 
 	return 0;
 }

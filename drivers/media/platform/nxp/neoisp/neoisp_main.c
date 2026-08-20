@@ -1485,6 +1485,17 @@ static int neoisp_init_node(struct neoisp_node_group_s *node_group, u32 id)
 
 	q->type = node->buf_type;
 	q->io_modes = VB2_MMAP | VB2_DMABUF;
+	/*
+	 * The NV12/IR capture nodes are the buffers the CoE sink CPU-reads every
+	 * frame. Force the non-coherent (cacheable + dma_sync) allocation model
+	 * so that mapping is cacheable (fast readout) and coherency-correct. The
+	 * INPUT (OUTPUT_MPLANE, DMABUF-imported) and META nodes are left on the
+	 * default coherent path. See vb2_dc_mmap()/set_queue_coherency().
+	 */
+	if (node->id == NEOISP_FRAME_NODE || node->id == NEOISP_IR_NODE) {
+		q->allow_cache_hints = 1;
+		q->force_non_coherent = 1;
+	}
 	q->mem_ops = &vb2_dma_contig_memops;
 	q->drv_priv = node;
 	if (node->id == NEOISP_PARAMS_NODE)

@@ -1504,6 +1504,14 @@ int mxc_isi_video_register(struct mxc_isi_pipe *pipe,
 	memset(q, 0, sizeof(*q));
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	q->io_modes = VB2_MMAP | VB2_DMABUF;
+	/*
+	 * Force the non-coherent (cacheable + dma_sync) allocation model so the
+	 * captured frames get a cacheable CPU mapping (fast per-frame readout)
+	 * while remaining DMABUF-importable into a second device (neo-ISP) with
+	 * correct cache maintenance. See vb2_dc_mmap()/set_queue_coherency().
+	 */
+	q->allow_cache_hints = 1;
+	q->force_non_coherent = 1;
 	q->drv_priv = video;
 	q->ops = &mxc_isi_vb2_qops;
 	q->mem_ops = &vb2_dma_contig_memops;

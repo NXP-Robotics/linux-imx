@@ -520,6 +520,13 @@ struct vb2_buf_ops {
  *		->finish().
  * @non_coherent_mem: when set queue will attempt to allocate buffers using
  *		non-coherent memory.
+ * @force_non_coherent: when set the driver forces the non-coherent (cacheable,
+ *		struct-page backed, dma_sync-managed) allocation model on this
+ *		queue regardless of the V4L2_MEMORY_FLAG_NON_COHERENT user-space
+ *		hint. Used on non-coherent ARM64 SoCs (e.g. i.MX95) so that CPU
+ *		readers get cacheable mappings (performance) while the buffers
+ *		stay DMABUF-importable into a second device with proper cache
+ *		maintenance. Requires @allow_cache_hints and VB2_MEMORY_MMAP.
  * @lock:	pointer to a mutex that protects the &struct vb2_queue. The
  *		driver can set this to a mutex to let the v4l2 core serialize
  *		the queuing ioctls. If the driver wants to handle locking
@@ -624,6 +631,7 @@ struct vb2_queue {
 	unsigned int			uses_requests:1;
 	unsigned int			allow_cache_hints:1;
 	unsigned int			non_coherent_mem:1;
+	unsigned int			force_non_coherent:1;
 
 	struct mutex			*lock;
 	void				*owner;
