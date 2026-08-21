@@ -15,6 +15,7 @@ struct ox05b1s_reglist {
 };
 
 extern const struct ox05b1s_reglist os08a20_reglist_4k_10b[];
+extern const struct ox05b1s_reglist os08a20_reglist_4k60_10b[];
 extern const struct ox05b1s_reglist os08a20_reglist_4k_12b[];
 extern const struct ox05b1s_reglist os08a20_reglist_1080p_10b[];
 

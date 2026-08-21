@@ -119,6 +119,14 @@ struct ox05b1s_mode {
 	u32 hts; /* default HTS */
 	u32 exp; /* max exposure */
 	bool h_bin; /* horizontal binning */
+	/*
+	 * Number of output pixels per HTS register count. When 0, the legacy
+	 * rule is used (h_bin ? 1 : 2). Some modes (e.g. OS08A20 4K60) run a
+	 * clocking scheme where the 0x380c line-length register counts 4 output
+	 * pixels per unit, which must be reflected in the HBLANK <-> HTS mapping
+	 * so that hblank stays non-negative and the frame rate is derived right.
+	 */
+	u32 hts_mult;
 	s64 pixel_rate;
 	const struct ox05b1s_reglist *reg_data;
 };
@@ -153,6 +161,7 @@ struct ox05b1s {
 
 #define OS08A20_PIXEL_RATE_144M	144000000
 #define OS08A20_PIXEL_RATE_288M	288000000
+#define OS08A20_PIXEL_RATE_576M	576000000
 static const struct ox05b1s_mode os08a20_supported_modes[] = {
 	{
 		/* 1080p BGGR10, no hdr, 60fps */
@@ -169,33 +178,31 @@ static const struct ox05b1s_mode os08a20_supported_modes[] = {
 		.reg_data	= os08a20_reglist_1080p_10b,
 	},
 	{
-		/* 4k BGGR10, no hdr, 30fps */
+		/* 4k BGGR10, no hdr, 60fps (1440 Mbps/lane, Axera clock recipe) */
 		.index		= 1,
 		.width		= 3840,
 		.height		= 2160,
 		.code		= MEDIA_BUS_FMT_SBGGR10_1X10,
 		.bpp		= 10,
 		.vts		= 0x90a,
-		.hts		= 0x818,
+		.hts		= 0x40c,
 		.exp		= 0x90a - 8,
 		.h_bin		= false,
-		.pixel_rate	= OS08A20_PIXEL_RATE_288M,
-		.reg_data	= os08a20_reglist_4k_10b,
+		.hts_mult	= 4,
+		.pixel_rate	= OS08A20_PIXEL_RATE_576M,
+		.reg_data	= os08a20_reglist_4k60_10b,
 	},
-	{
-		/* 4k BGGR12, no hdr, 30fps */
-		.index		= 2,
-		.width		= 3840,
-		.height		= 2160,
-		.code		= MEDIA_BUS_FMT_SBGGR12_1X12,
-		.bpp		= 12,
-		.vts		= 0x90a,
-		.hts		= 0x818,
-		.exp		= 0x90a - 8,
-		.h_bin		= false,
-		.pixel_rate	= OS08A20_PIXEL_RATE_288M,
-		.reg_data	= os08a20_reglist_4k_12b,
-	},
+	/*
+	 * 4K RAW12 (SBGGR12) 30fps mode removed on purpose.
+	 *
+	 * libcamera's CameraSensor prefers the highest bit depth, so leaving a
+	 * 4K RAW12 mode here makes the neo-ISP NV12 pipeline program the sensor
+	 * to SBGGR12 and cap at 30fps. 4K60 requires RAW10: at 4K60 the sensor
+	 * needs ~1.73 Gbps/lane in RAW12 (~6.9 Gbps aggregate), exceeding the
+	 * OS08A20's 1.5 Gbps/lane / 6.0 Gbps max, whereas RAW10 4K60 fits at
+	 * 1440 Mbps/lane (5.76 Gbps). No validated RAW12-60 register set exists.
+	 * Dropping the 4K RAW12 mode steers neo to the RAW10 60fps mode above.
+	 */
 	{
 		/* sentinel */
 	}
@@ -216,24 +223,10 @@ static const struct v4l2_area os08a20_sbggr10_sizes[] = {
 	}
 };
 
-static const struct v4l2_area os08a20_sbggr12_sizes[] = {
-	{
-		.width = 3840,
-		.height = 2160,
-	},
-	{
-		/* sentinel */
-	}
-};
-
 static const struct ox05b1s_sizes os08a20_supported_codes[] = {
 	{
 		.code = MEDIA_BUS_FMT_SBGGR10_1X10,
 		.sizes = os08a20_sbggr10_sizes
-	},
-	{
-		.code = MEDIA_BUS_FMT_SBGGR12_1X12,
-		.sizes = os08a20_sbggr12_sizes,
 	},
 	{
 		/* sentinel */
@@ -667,6 +660,18 @@ static int ox05b1s_set_dgain_short(struct ox05b1s *sensor, u32 dgain)
 	}
 }
 
+/*
+ * Output pixels represented by one HTS (0x380c) register count for the current
+ * mode. Older modes did not carry this explicitly, so fall back to the legacy
+ * rule (binned: 1, otherwise: 2) when .hts_mult is left unset.
+ */
+static inline u32 ox05b1s_hts_mult(const struct ox05b1s_mode *mode)
+{
+	if (mode->hts_mult)
+		return mode->hts_mult;
+	return mode->h_bin ? 1 : 2;
+}
+
 /* Calculate frame duration in microseconds based on current mode */
 static int ox05b1s_get_frame_duration_us(struct ox05b1s *sensor)
 {
@@ -886,8 +891,7 @@ static int ox05b1s_s_ctrl(struct v4l2_ctrl *ctrl)
 				h + ctrl->val, NULL);
 		break;
 	case V4L2_CID_HBLANK:
-		hts = (sensor->mode->h_bin) ?
-			  w + ctrl->val : (w + ctrl->val) / 2;
+		hts = (w + ctrl->val) / ox05b1s_hts_mult(sensor->mode);
 		ret = cci_write(sensor->regmap, OX05B1S_REG_TIMING_HTS,
 				hts, NULL);
 		break;
@@ -964,9 +968,13 @@ static const struct v4l2_ctrl_ops ox05b1s_ctrl_ops = {
 /*
  * MIPI CSI-2 link frequencies.
  * link_freq = (pixel_rate * bpp) / (2 * data_lanes)
+ *
+ * NOTE: this driver exposes a single, read-only link frequency shared by all
+ * modes (it is not reselected per mode). It is set for the primary 4K60 RAW10
+ * mode: 576M pixel_rate * 10bpp / (2 * 4 lanes) = 720 MHz => 1440 Mbps/lane.
  */
 static const s64 ox05b1s_csi2_link_freqs[] = {
-	200000000,
+	720000000,
 };
 
 /* Link freq for default mode: 1080p RAW10, 4 data lanes 800 Mbps/lane. */
@@ -1336,7 +1344,8 @@ static int ox05b1s_update_controls(struct ox05b1s *sensor)
 	if (sensor->mode->h_bin)
 		hblank = hts - sensor->mode->width;
 	else
-		hblank = 2 * hts - sensor->mode->width;
+		hblank = ox05b1s_hts_mult(sensor->mode) * hts -
+			 sensor->mode->width;
 
 	ret = __v4l2_ctrl_modify_range(sensor->ctrls.hblank, hblank, hblank,
 				       1, hblank);
