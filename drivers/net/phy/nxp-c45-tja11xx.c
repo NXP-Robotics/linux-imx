@@ -118,6 +118,21 @@
 
 #define VEND1_SGMII_BASIC_CONTROL	0xB000
 #define SGMII_LPM			BIT(11)
+#define SGMII_AN_ENABLE			BIT(12)
+#define SGMII_SS13			BIT(13)
+#define SGMII_DUPLEX			BIT(8)
+#define SGMII_SS6			BIT(6)
+
+
+#define VEND1_SGMII_ADVANCED_CONTROL	0xB010
+#define SGMII_START_OPERATION		BIT(0)
+
+#define VEND1_SGMII_ADVANCED_STATUS	0xB011
+#define SGMII_ADV_LINK_STATUS		BIT(2)
+
+#define VEND1_SGMII_ADVANCED_CONFIG	0xB013
+#define SGMII_AUTO			BIT(0)
+
 
 #define VEND1_SYMBOL_ERROR_CNT_XTD	0x8351
 #define EXTENDED_CNT_EN			BIT(15)
@@ -1376,6 +1391,8 @@ static int nxp_c45_get_sqi(struct phy_device *phydev)
 	return reg;
 }
 
+static void nxp_c45_config_sgmii_pcs(struct phy_device *phydev);
+
 static void tja1120_link_change_notify(struct phy_device *phydev)
 {
 	/* Bug workaround for TJA1120 enegineering samples: fix egress
@@ -1386,8 +1403,29 @@ static void tja1120_link_change_notify(struct phy_device *phydev)
 				 TJA1120_EPHY_RESETS, EPHY_PCS_RESET);
 		phy_clear_bits_mmd(phydev, MDIO_MMD_VEND1,
 				   TJA1120_EPHY_RESETS, EPHY_PCS_RESET);
+
+		/* The PCS reset above wipes our SGMII settings, so
+		 * reapply them.
+		 */
+		if (phydev->interface == PHY_INTERFACE_MODE_SGMII)
+			nxp_c45_config_sgmii_pcs(phydev);
+	} else if (phydev->state == PHY_RUNNING &&
+		   phydev->interface == PHY_INTERFACE_MODE_SGMII) {
+
+		/* The link partner reprograms the SGMII side when the link
+		 * comes up, wiping our settings. Reapply them, but without a
+		 * PCS reset so we don't drop the fresh link.
+		 */
+		phy_modify_mmd(phydev, MDIO_MMD_VEND1, VEND1_SGMII_BASIC_CONTROL,
+			       SGMII_AN_ENABLE | SGMII_SS13 | SGMII_DUPLEX |
+			       SGMII_SS6, SGMII_DUPLEX | SGMII_SS6);
+		phy_set_bits_mmd(phydev, MDIO_MMD_VEND1,
+				 VEND1_SGMII_ADVANCED_CONTROL,
+				 SGMII_START_OPERATION);
 	}
 }
+
+
 
 static int nxp_c45_get_sqi_max(struct phy_device *phydev)
 {
@@ -1516,11 +1554,30 @@ static int nxp_c45_get_delays(struct phy_device *phydev)
 	return 0;
 }
 
+/* Set up the TJA1120 SGMII side to talk to the link partner.
+ *
+ * The link partner uses a fixed 1Gbps link with no auto-negotiation, and
+ * the SGMII SerDes powers up disabled. So we turn off auto-negotiation,
+ * force 1Gbps full duplex, and start the SerDes.
+ */
+static void nxp_c45_config_sgmii_pcs(struct phy_device *phydev)
+{
+	/* Fixed 1Gbps full duplex, auto-negotiation off. */
+	phy_modify_mmd(phydev, MDIO_MMD_VEND1, VEND1_SGMII_BASIC_CONTROL,
+		       SGMII_AN_ENABLE | SGMII_SS13 | SGMII_DUPLEX | SGMII_SS6,
+		       SGMII_DUPLEX | SGMII_SS6);
+
+	/* Start the SerDes. */
+	phy_set_bits_mmd(phydev, MDIO_MMD_VEND1, VEND1_SGMII_ADVANCED_CONTROL,
+			 SGMII_START_OPERATION);
+}
+
 static int nxp_c45_set_phy_mode(struct phy_device *phydev)
 {
 	struct nxp_c45_phy *priv = phydev->priv;
 	u16 basic_config;
 	int ret;
+
 
 	ret = phy_read_mmd(phydev, MDIO_MMD_VEND1, VEND1_ABILITIES);
 	phydev_dbg(phydev, "Clause 45 managed PHY abilities 0x%x\n", ret);
@@ -1588,6 +1645,7 @@ static int nxp_c45_set_phy_mode(struct phy_device *phydev)
 		}
 		phy_write_mmd(phydev, MDIO_MMD_VEND1, VEND1_MII_BASIC_CONFIG,
 			      MII_BASIC_CONFIG_SGMII);
+		nxp_c45_config_sgmii_pcs(phydev);
 		break;
 	case PHY_INTERFACE_MODE_INTERNAL:
 		break;
@@ -1663,6 +1721,23 @@ static int nxp_c45_config_init(struct phy_device *phydev)
 	if (ret) {
 		phydev_err(phydev, "Failed to enable config\n");
 		return ret;
+	}
+
+	/* If the PHY supports SGMII, advertise 1Gbps full duplex so it can
+	 * link with the link partner at gigabit speed. The PHY only reports
+	 * its 100BASE-T1 speed by default, which would leave no common speed.
+	 * This is done here (not in probe) because the interface list is
+	 * cleared before config_init runs.
+	 */
+	ret = phy_read_mmd(phydev, MDIO_MMD_VEND1, VEND1_ABILITIES);
+	if (ret > 0 && (ret & SGMII_ABILITY)) {
+		__set_bit(PHY_INTERFACE_MODE_SGMII, phydev->possible_interfaces);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
+				 phydev->supported);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
+				 phydev->advertising);
+		phydev_info(phydev, "SGMII capable, advertising=%*pbl\n",
+			    __ETHTOOL_LINK_MODE_MASK_NBITS, phydev->advertising);
 	}
 
 	/* Bug workaround for SJA1110 rev B: enable write access
