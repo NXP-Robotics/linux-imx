@@ -2308,6 +2308,13 @@ lpuart32_set_termios(struct uart_port *port, struct ktermios *termios,
 		ctrl &= ~UARTCTRL_PE;
 	}
 
+	/*
+	 * Make sure that UARTCTRL_RIE and UARTCTRL_ILIE keep being actived within
+	 * interrupt mode.
+	 */
+	if (!sport->lpuart_dma_rx_use)
+		ctrl |= UARTCTRL_RIE | UARTCTRL_ILIE;
+
 	/* ask the core to calculate the divisor */
 	baud = uart_get_baud_rate(port, termios, old, 50, port->uartclk / 4);
 
