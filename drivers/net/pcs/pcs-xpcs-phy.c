@@ -5,8 +5,34 @@
 
 #include <linux/pcs/pcs-xpcs.h>
 #include <linux/delay.h>
+#include <linux/moduleparam.h>
 #include <linux/sched.h>
 #include "pcs-xpcs.h"
+
+/*
+ * Optional MPLLA spread spectrum clocking (SSC) for the 2.5GBASE-X / XAUI-KX4
+ * datapath (MPLLA VCO 2812.5 MHz, 1406.25 MHz peak). Spreading the serdes
+ * clock lowers the peak radiated emission at that frequency.
+ *
+ * Enabled by default; disable with pcs_xpcs.mplla_ssc=0 if a link partner
+ * cannot tolerate the spread. The modulation period (ssc_frq_cnt_int) and the
+ * peak deviation (ssc_frq_cnt_pk) follow the Synopsys 16G PHY SSC formulas and
+ * depend on the reference clock; the defaults below are unverified starting
+ * points, adjust at bring-up.
+ */
+static bool mplla_ssc = true;
+module_param(mplla_ssc, bool, 0444);
+MODULE_PARM_DESC(mplla_ssc,
+		 "Enable MPLLA spread spectrum clocking for 2.5G links (default on)");
+
+static u16 mplla_ssc_frq_cnt_int = 0x1F4;
+module_param(mplla_ssc_frq_cnt_int, ushort, 0444);
+MODULE_PARM_DESC(mplla_ssc_frq_cnt_int, "MPLLA SSC modulation period divider (12 bit)");
+
+static u16 mplla_ssc_frq_cnt_pk = 0x14;
+module_param(mplla_ssc_frq_cnt_pk, ushort, 0444);
+MODULE_PARM_DESC(mplla_ssc_frq_cnt_pk, "MPLLA SSC peak frequency deviation (8 bit)");
+
 
 #define XPCS_DEV		0x0
 #define XPCS_PHY_DEV		0x10
@@ -757,8 +783,13 @@ static int xpcs_phy_mplla_configuration_xaui_kx4(struct dw_xpcs *xpcs, bool has_
 			PMA_RX_GENCTRL2_RX0_WIDTH_MASK, PMA_RX_GENCTRL2_RX0_WIDTH(0x1));
 	xpcs_phy_modify(xpcs, XPCS_DEV, devad, PMA_MP_12G_16G_25G_RX_GENCTRL1,
 			PMA_RX_GENCTRL1_RX_DIV16P5_CLK_EN_0, 0);
+	/*
+	 * The local CDR must tolerate a spread clock when MPLLA SSC is on,
+	 * because the same MPLLA feeds the RX datapath.
+	 */
 	xpcs_phy_modify(xpcs, XPCS_DEV, devad, PMA_MP_12G_16G_25G_RX_CDR_CTRL,
-			PMA_RX_CDR_CTRL_CDR_SSC_EN_0, 0);
+			PMA_RX_CDR_CTRL_CDR_SSC_EN_0,
+			mplla_ssc ? PMA_RX_CDR_CTRL_CDR_SSC_EN_0 : 0);
 	xpcs_phy_modify(xpcs, XPCS_DEV, devad, PMA_MP_12G_16G_RX_GENCTRL3,
 			PMA_RX_GENCTRL3_LOS_LFPS_EN_0, 0);
 	xpcs_phy_modify(xpcs, XPCS_DEV, devad, PMA_MP_16G_25G_RX_GENCTRL4,
@@ -834,6 +865,29 @@ static int xpcs_phy_mplla_configuration_xaui_kx4(struct dw_xpcs *xpcs, bool has_
 			PMA_RX_IQ_CTRL0_RX0_DELTA_IQ_MASK, PMA_RX_IQ_CTRL0_RX0_DELTA_IQ(0x0));
 	xpcs_phy_modify(xpcs, XPCS_DEV, devad, PMA_MP_16G_25G_RX_EQ_CTRL5,
 			PMA_RX_EQ_CTRL5_RX0_ADPT_MODE_MASK, PMA_RX_EQ_CTRL5_RX0_ADPT_MODE(0x0));
+	/*
+	 * Program MPLLA SSC last, before the vendor-specific soft reset, so the
+	 * PLL comes up already spread. SSC_EN is set after the period and peak
+	 * deviation values and after SSC_CLK_SEL selects reference-clock based
+	 * modulation.
+	 */
+	if (mplla_ssc) {
+		xpcs_phy_modify(xpcs, XPCS_DEV, devad, PMA_MP_16G_MPLLA_CTRL4,
+				PMA_MPLLA_CTRL4_MPLLA_SSC_FRQ_CNT_INT_MASK,
+				PMA_MPLLA_CTRL4_MPLLA_SSC_FRQ_CNT_INT(mplla_ssc_frq_cnt_int));
+		xpcs_phy_modify(xpcs, XPCS_DEV, devad, PMA_MP_16G_MPLLA_CTRL5,
+				PMA_MPLLA_CTRL5_MPLLA_SSC_FRQ_CNT_PK_MASK |
+				PMA_MPLLA_CTRL5_MPLLA_SSC_SPD_EN,
+				PMA_MPLLA_CTRL5_MPLLA_SSC_FRQ_CNT_PK(mplla_ssc_frq_cnt_pk) |
+				PMA_MPLLA_CTRL5_MPLLA_SSC_SPD_EN);
+		xpcs_phy_modify(xpcs, XPCS_DEV, devad, PMA_MP_16G_MPLLA_CTRL1,
+				PMA_MPLLA_CTRL1_MPLLA_SSC_CLK_SEL,
+				PMA_MPLLA_CTRL1_MPLLA_SSC_CLK_SEL);
+		xpcs_phy_modify(xpcs, XPCS_DEV, devad, PMA_MP_16G_MPLLA_CTRL1,
+				PMA_MPLLA_CTRL1_MPLLA_SSC_EN,
+				PMA_MPLLA_CTRL1_MPLLA_SSC_EN);
+	}
+
 	xpcs_phy_modify(xpcs, XPCS_DEV, has_pcs_pma ? MDIO_MMD_PCS : MDIO_MMD_VEND2, MII_DIG_CTRL1,
 			MII_DIG_CTRL1_VR_RST, MII_DIG_CTRL1_VR_RST);
 
