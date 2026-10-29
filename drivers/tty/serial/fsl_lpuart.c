@@ -2232,9 +2232,11 @@ lpuart32_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned int  baud;
 	unsigned int old_csize = old ? old->c_cflag & CSIZE : CS8;
 
+	uart_port_lock_irqsave(port, &flags);
 	ctrl = old_ctrl = lpuart32_read(port, UARTCTRL);
 	bd = lpuart32_read(port, UARTBAUD);
 	modem = lpuart32_read(port, UARTMODIR);
+	uart_port_unlock_irqrestore(port, flags);
 	sport->is_cs7 = false;
 	/*
 	 * only support CS8 and CS7
